@@ -23,8 +23,34 @@ def pytorchWorkFlow():
     step = 0.02
     X = torch.arange(start, end, step).unsqueeze(dim=1)
     y = weight * X + bias
+    train_split = int(0.8 * len(X))
+    X_train, y_train = X[:train_split], y[:train_split]
+    X_test, y_test = X[train_split:], y[train_split:]
 
-    print(X[:10], y[:10], len(X), len(y))
+    class LinearRegModel(nn.Module):
+        def __init__(self, *args, **kwargs) -> None:
+            super().__init__(*args, **kwargs)
+            self.weights = nn.Parameter(torch.randn(
+                1, requires_grad=True, dtype=torch.float32))
+            self.bias = nn.Parameter(torch.randn(
+                1, requires_grad=True, dtype=torch.float32))
+
+        def forward(self, x: torch.Tensor) -> torch.Tensor:
+            return self.weights * x + self.bias
+
+    def plot_Predictions(train_data=X_train, train_label=y_train, test_data=X_test, test_labels=y_test, predictions=None):
+        print('e')
+        plt.figure(figsize=(10, 7))
+        plt.scatter(train_data, train_label, c="b", s=4, label="Training data")
+        plt.scatter(test_data, test_labels, c="g", s=4, label="Testing data")
+
+        if predictions is not None:
+            plt.scatter(test_data, predictions, c='r',
+                        s=4, label="Predictions")
+
+        plt.legend(prop={"size": 14})
+        plt.show()
+    plot_Predictions()
 
 
 if __name__ == "__main__":

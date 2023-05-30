@@ -19,6 +19,12 @@ MODEL_PATH = Path("models")
 class LinearRegModel(nn.Module):
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
+        self.device = "cpu"
+        if torch.cuda.is_available():
+            torch.backends.cuda.matmul.allow_tf32 = True
+            torch.backends.cudnn.allow_tf32 = True
+            self.device = "cuda"
+        torch.device(device=self.device)
         self.weights = nn.Parameter(torch.randn(
             1, requires_grad=True, dtype=torch.float32))
         self.bias = nn.Parameter(torch.randn(
@@ -26,10 +32,7 @@ class LinearRegModel(nn.Module):
         self.loss_fn = nn.L1Loss()
         self.optimizer = torch.optim.SGD(
             params=self.parameters(), lr=0.001)
-        start = 0
-        end = 1
-        step = 0.02
-        X = torch.arange(start, end, step).unsqueeze(dim=1)
+        X = torch.arange(0, 1, 0.02).unsqueeze(dim=1)
         y = self.weights * X + self.bias
         train_split = int(0.8 * len(X))
         self.X_train, self.y_train = X[:train_split], y[:train_split]

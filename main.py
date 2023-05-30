@@ -3,6 +3,7 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 from torch import nn
+from pathlib import Path
 
 
 device = "cpu"
@@ -12,6 +13,7 @@ if torch.cuda.is_available():
     torch.backends.cudnn.allow_tf32 = True
     device = "cuda"
 torch.device(device=device)
+MODEL_PATH = Path("models")
 
 
 def pytorchWorkFlow():
@@ -57,6 +59,7 @@ def pytorchWorkFlow():
                 plt.ylabel("Loss")
                 plt.xlabel("Epochs")
                 plt.legend()
+                plt.show()
 
         def train_loop(self):
 
@@ -107,7 +110,11 @@ def pytorchWorkFlow():
         plt.show()
     with torch.inference_mode():
         y_preds = my_model(X_test)
-    plot_Predictions(predictions=y_preds)
+    # plot_Predictions(predictions=y_preds)
+    MODEL_PATH.mkdir(parents=True, exist_ok=True)
+    MODEL_NAME = "01_pytorch.pth"
+    MODEL_SAVE_PATH = MODEL_PATH / MODEL_NAME
+    torch.save(my_model.state_dict(), MODEL_SAVE_PATH)
 
 
 if __name__ == "__main__":

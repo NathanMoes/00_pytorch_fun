@@ -78,36 +78,35 @@ class LinearRegModel(nn.Module):
             self.eval()  # enable testing
             test_loss = self.test_output(epoch=epoch, loss=loss)
             self.test_loss_values.append(test_loss)
-            # if epoch % 1000 == 0:
-            #     print(
-            #         f"Loss: {loss}, weight:{self.weights} and bias: {self.bias}")
+
+    def plot_Predictions(self):
+        with torch.inference_mode():
+            y_preds = self.forward(self.X_test)
+        self.plot_Predictions_Helper(predictions=y_preds)
+
+    def plot_Predictions_Helper(self, predictions=None):
+        train_data = self.X_train
+        train_label = self.y_train
+        test_data = self.X_test
+        test_labels = self.y_test
+        print('e')
+        plt.figure(figsize=(10, 7))
+        plt.scatter(train_data, train_label, c="b", s=4, label="Training data")
+        plt.scatter(test_data, test_labels, c="g", s=4, label="Testing data")
+        if predictions is not None:
+            plt.scatter(test_data, predictions, c='r',
+                        s=4, label="Predictions")
+
+        plt.legend(prop={"size": 14})
+        plt.show()
 
 
 def pytorchWorkFlow():
-
-    weight = 0.7
-    bias = 0.3
 
     torch.manual_seed(42)
     my_model = LinearRegModel()
     my_model.train_loop()
     my_model.print_loss_curve()
-
-    # def plot_Predictions(train_data=X_train, train_label=y_train, test_data=X_test, test_labels=y_test, predictions=None):
-    #     print('e')
-    #     plt.figure(figsize=(10, 7))
-    #     plt.scatter(train_data, train_label, c="b", s=4, label="Training data")
-    #     plt.scatter(test_data, test_labels, c="g", s=4, label="Testing data")
-
-    #     if predictions is not None:
-    #         plt.scatter(test_data, predictions, c='r',
-    #                     s=4, label="Predictions")
-
-    #     plt.legend(prop={"size": 14})
-    #     plt.show()
-    # with torch.inference_mode():
-    #     y_preds = my_model(X_test)
-    # plot_Predictions(predictions=y_preds)
     MODEL_PATH.mkdir(parents=True, exist_ok=True)
     MODEL_NAME = "01_pytorch.pth"
     MODEL_SAVE_PATH = MODEL_PATH / MODEL_NAME

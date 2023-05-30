@@ -17,15 +17,30 @@ torch.device(device=device)
 def pytorchWorkFlow():
 
     class LinearRegModel(nn.Module):
-        def __init__(self, *args, **kwargs) -> None:
+        def __init__(self, X_Train, y_train, *args, **kwargs) -> None:
             super().__init__(*args, **kwargs)
             self.weights = nn.Parameter(torch.randn(
                 1, requires_grad=True, dtype=torch.float32))
             self.bias = nn.Parameter(torch.randn(
                 1, requires_grad=True, dtype=torch.float32))
+            self.loss_fn = nn.L1Loss()
+            self.optimizer = torch.optim.SGD(
+                params=self.parameters(), lr=0.01)
+            self.epochs = 1000
+            self.X_train = X_train
 
         def forward(self, x: torch.Tensor) -> torch.Tensor:
             return self.weights * x + self.bias
+
+        def train_loop(self):
+            for epoch in range(self.epochs):
+                self.train()
+                y_pred = self.forward(self.X_train)
+                loss = self.loss_fn(y_pred, y_train)
+                self.optimizer.zero_grad()
+                loss.backward()
+                self.optimizer.step()
+                self.eval()
 
     weight = 0.7
     bias = 0.3
@@ -39,7 +54,8 @@ def pytorchWorkFlow():
     X_train, y_train = X[:train_split], y[:train_split]
     X_test, y_test = X[train_split:], y[train_split:]
     torch.manual_seed(42)
-    my_model = LinearRegModel()
+    my_model = LinearRegModel(X_train, y_train=y_train)
+    my_model.train_loop()
 
     def plot_Predictions(train_data=X_train, train_label=y_train, test_data=X_test, test_labels=y_test, predictions=None):
         print('e')

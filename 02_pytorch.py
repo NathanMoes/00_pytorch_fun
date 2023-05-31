@@ -6,6 +6,7 @@ from torch import nn
 from pathlib import Path
 import sklearn
 from sklearn.datasets import make_circles
+from sklearn.model_selection import train_test_split
 
 
 device = "cpu"
@@ -36,3 +37,33 @@ plt.scatter(
     cmap=plt.cm.RdYlBu
 )
 plt.show()
+
+X = torch.from_numpy(X).type(torch.float32)
+y = torch.from_numpy(y).type(torch.float32)
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42)
+
+
+class classificationModule(nn.Module):
+
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        # create 2 nn layers for data inp and out
+        self.input_layer = nn.Linear(in_features=2, out_features=5)
+        self.output_layer = nn.Linear(in_features=5, out_features=1)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return self.output_layer(self.input_layer(x))
+
+
+if __name__ == "__main__":
+    model_0 = classificationModule().to(device)
+    # model_0 = nn.Sequential(
+    #     nn.Linear(in_features=2, out_features=5),
+    #     nn.Linear(in_features=5, out_features=1)
+    # ).to(device=device)
+
+    loss_fn = nn.BCEWithLogitsLoss()
+
+    with torch.inference_mode():
+        untrain_pred = model_0(X_test.to(device))

@@ -7,6 +7,19 @@ from pathlib import Path
 import sklearn
 from sklearn.datasets import make_circles
 from sklearn.model_selection import train_test_split
+import requests
+
+
+if Path("helper_functions.py").is_file():
+    print("helper_functions.py already exists, skipping download")
+else:
+    print("Downloading helper_functions.py")
+    request = requests.get(
+        "https://raw.githubusercontent.com/mrdbourke/pytorch-deep-learning/main/helper_functions.py")
+    with open("helper_functions.py", "wb") as f:
+        f.write(request.content)
+
+from helper_functions import plot_predictions, plot_decision_boundary
 
 
 device = "cpu"
@@ -67,11 +80,12 @@ if __name__ == "__main__":
     def acc_fn(y_true, y_pred):
         correct = torch.eq(y_true, y_pred).sum().item()
         acc = (correct / len(y_pred)) * 100
+        return acc
 
     loss_fn = nn.BCEWithLogitsLoss()
     optimizer = torch.optim.SGD(params=model_0.parameters(), lr=0.1)
 
-    epochs = 100
+    epochs = 1000
 
     X_train = X_train.to(device)
     X_test = X_test.to(device)

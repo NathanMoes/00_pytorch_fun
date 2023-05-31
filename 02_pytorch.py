@@ -44,12 +44,12 @@ circles = pd.DataFrame(
         "label": y
     }
 )
-plt.scatter(
-    x=X[:, 0],
-    y=X[:, 1],
-    c=y,
-    cmap=plt.cm.RdYlBu
-)
+# plt.scatter(
+#     x=X[:, 0],
+#     y=X[:, 1],
+#     c=y,
+#     cmap=plt.cm.RdYlBu
+# )
 # plt.show()
 
 X = torch.from_numpy(X).type(torch.float32)
@@ -71,7 +71,8 @@ class classificationModule(nn.Module):
 
 
 if __name__ == "__main__":
-    n_out_feats = 8
+    n_out_feats = 128
+    # device = "cpu"
     torch.manual_seed(42)
     # model_0 = classificationModule().to(device)
     model_0 = nn.Sequential(

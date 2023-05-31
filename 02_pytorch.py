@@ -33,6 +33,7 @@ MODEL_PATH = Path("models")
 
 # make samples
 n_samples = 1000
+n_features = 5
 
 # create circles
 X, y = make_circles(n_samples=n_samples, noise=0.03, random_state=42)
@@ -62,8 +63,8 @@ class classificationModule(nn.Module):
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         # create 2 nn layers for data inp and out
-        self.input_layer = nn.Linear(in_features=2, out_features=5)
-        self.output_layer = nn.Linear(in_features=5, out_features=1)
+        self.input_layer = nn.Linear(in_features=2, out_features=n_features)
+        self.output_layer = nn.Linear(in_features=n_features, out_features=1)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return self.output_layer(self.input_layer(x))
@@ -71,11 +72,14 @@ class classificationModule(nn.Module):
 
 if __name__ == "__main__":
     torch.manual_seed(42)
-    model_0 = classificationModule().to(device)
-    # model_0 = nn.Sequential(
-    #     nn.Linear(in_features=2, out_features=5),
-    #     nn.Linear(in_features=5, out_features=1)
-    # ).to(device=device)
+    # model_0 = classificationModule().to(device)
+    model_0 = nn.Sequential(
+        nn.Linear(in_features=2, out_features=128),
+        nn.ReLU(),
+        nn.Linear(in_features=128, out_features=256),
+        nn.ReLU(),
+        nn.Linear(in_features=256, out_features=1)
+    ).to(device=device)
 
     def acc_fn(y_true, y_pred):
         correct = torch.eq(y_true, y_pred).sum().item()
@@ -91,6 +95,7 @@ if __name__ == "__main__":
     X_test = X_test.to(device)
     y_test = y_test.to(device)
     y_train = y_train.to(device)
+
     for epoch in range(epochs):
         model_0.train()
         # forward pass
@@ -109,6 +114,7 @@ if __name__ == "__main__":
         optimizer.step()
         # test
         model_0.eval()
+
         with torch.inference_mode():
             # forward pass
             test_logits = model_0(X_test).squeeze()
@@ -116,6 +122,15 @@ if __name__ == "__main__":
             # calc test loss
             test_loss = loss_fn(test_logits, y_test)
             test_acc = acc_fn(y_true=y_test, y_pred=test_pred)
+
             if epoch % 10 == 0:
                 print(
                     f"epoch: {epoch} | loss: {loss}, acc {acc} | test loss: {test_loss}, test acc: {test_acc}")
+    plt.figure(figsize=(12, 6))
+    plt.subplot(1, 2, 1)
+    plt.title("Train")
+    plot_decision_boundary(model_0, X_train, y_train)
+    plt.subplot(1, 2, 2)
+    plt.title("Test")
+    plot_decision_boundary(model_0, X_test, y_test)
+    plt.show()

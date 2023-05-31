@@ -50,7 +50,7 @@ plt.scatter(
     c=y,
     cmap=plt.cm.RdYlBu
 )
-plt.show()
+# plt.show()
 
 X = torch.from_numpy(X).type(torch.float32)
 y = torch.from_numpy(y).type(torch.float32)
@@ -71,12 +71,13 @@ class classificationModule(nn.Module):
 
 
 if __name__ == "__main__":
+    n_out_feats = 8
     torch.manual_seed(42)
     # model_0 = classificationModule().to(device)
     model_0 = nn.Sequential(
-        nn.Linear(in_features=2, out_features=128),
+        nn.Linear(in_features=2, out_features=n_out_feats),
         nn.GELU(),
-        nn.Linear(in_features=128, out_features=1)
+        nn.Linear(in_features=n_out_feats, out_features=1)
     ).to(device=device)
 
     def acc_fn(y_true, y_pred):
@@ -87,7 +88,7 @@ if __name__ == "__main__":
     loss_fn = nn.BCEWithLogitsLoss()
     optimizer = torch.optim.SGD(params=model_0.parameters(), lr=0.1)
 
-    epochs = 3000
+    epochs = 10000
 
     X_train = X_train.to(device)
     X_test = X_test.to(device)

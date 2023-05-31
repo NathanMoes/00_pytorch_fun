@@ -57,6 +57,7 @@ class classificationModule(nn.Module):
 
 
 if __name__ == "__main__":
+    torch.manual_seed(42)
     model_0 = classificationModule().to(device)
     # model_0 = nn.Sequential(
     #     nn.Linear(in_features=2, out_features=5),
@@ -70,5 +71,37 @@ if __name__ == "__main__":
     loss_fn = nn.BCEWithLogitsLoss()
     optimizer = torch.optim.SGD(params=model_0.parameters(), lr=0.1)
 
-    with torch.inference_mode():
-        untrain_pred = model_0(X_test.to(device))
+    epochs = 100
+
+    X_train = X_train.to(device)
+    X_test = X_test.to(device)
+    y_test = y_test.to(device)
+    y_train = y_train.to(device)
+    for epoch in range(epochs):
+        model_0.train()
+        # forward pass
+        y_logits = model_0(X_train).squeeze()
+        # turn logits -> pred probs -> pred lables
+        y_pred = torch.round(torch.sigmoid(y_logits))
+        # calc loss / acc
+        # bce with logits expects raw logits at inp
+        loss = loss_fn(y_logits, y_train)
+        acc = acc_fn(y_true=y_train, y_pred=y_pred)
+        # opt zero grad
+        optimizer.zero_grad()
+        # loss back
+        loss.backward()
+        # optim step
+        optimizer.step()
+        # test
+        model_0.eval()
+        with torch.inference_mode():
+            # forward pass
+            test_logits = model_0(X_test).squeeze()
+            test_pred = torch.round(torch.sigmoid(test_logits))
+            # calc test loss
+            test_loss = loss_fn(test_logits, y_test)
+            test_acc = acc_fn(y_true=y_test, y_pred=test_pred)
+            if epoch % 10 == 0:
+                print(
+                    f"epoch: {epoch} | loss: {loss}, acc {acc} | test loss: {test_loss}, test acc: {test_acc}")

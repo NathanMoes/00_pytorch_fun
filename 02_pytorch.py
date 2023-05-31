@@ -75,10 +75,8 @@ if __name__ == "__main__":
     # model_0 = classificationModule().to(device)
     model_0 = nn.Sequential(
         nn.Linear(in_features=2, out_features=128),
-        nn.ReLU(),
-        nn.Linear(in_features=128, out_features=256),
-        nn.ReLU(),
-        nn.Linear(in_features=256, out_features=1)
+        nn.GELU(),
+        nn.Linear(in_features=128, out_features=1)
     ).to(device=device)
 
     def acc_fn(y_true, y_pred):
@@ -89,7 +87,7 @@ if __name__ == "__main__":
     loss_fn = nn.BCEWithLogitsLoss()
     optimizer = torch.optim.SGD(params=model_0.parameters(), lr=0.1)
 
-    epochs = 1000
+    epochs = 3000
 
     X_train = X_train.to(device)
     X_test = X_test.to(device)

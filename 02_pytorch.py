@@ -63,7 +63,12 @@ if __name__ == "__main__":
     #     nn.Linear(in_features=5, out_features=1)
     # ).to(device=device)
 
+    def acc_fn(y_true, y_pred):
+        correct = torch.eq(y_true, y_pred).sum().item()
+        acc = (correct / len(y_pred)) * 100
+
     loss_fn = nn.BCEWithLogitsLoss()
+    optimizer = torch.optim.SGD(params=model_0.parameters(), lr=0.1)
 
     with torch.inference_mode():
         untrain_pred = model_0(X_test.to(device))

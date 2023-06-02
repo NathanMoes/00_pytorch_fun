@@ -8,6 +8,7 @@ import sklearn
 from sklearn.datasets import make_blobs
 from sklearn.model_selection import train_test_split
 import requests
+from torchmetrics import Accuracy
 
 
 if Path("helper_functions.py").is_file():
@@ -30,6 +31,8 @@ if torch.cuda.is_available():
     device = "cuda"
 torch.device(device=device)
 MODEL_PATH = Path("models")
+
+torchMetricAcc = Accuracy(task='multiclass', num_classes=4).to(device)
 
 # make samples
 n_samples = 1000
@@ -87,7 +90,7 @@ class multiClassificationModule(nn.Module):
 
 if __name__ == "__main__":
     print('e')
-    epochs = 1000
+    epochs = 100
     # create model
     model_0 = multiClassificationModule(
         input_features=2, output_features=4, hidden_units=8).to(device=device)
@@ -117,6 +120,7 @@ if __name__ == "__main__":
             if epoch % 10 == 0:
                 print(
                     f"Epoch: {epoch} | loss {loss}, Acc: {acc} | Test loss {test_loss}, Test Acc: {test_acc}")
+                # print(y_preds)
 
     plt.figure(figsize=(12, 6))
     plt.subplot(1, 2, 1)
@@ -126,3 +130,4 @@ if __name__ == "__main__":
     plt.title("Test")
     plot_decision_boundary(model_0, X_blob_test, y_blob_test)
     plt.show()
+    print(torchMetricAcc(y_preds, y_blob_test))

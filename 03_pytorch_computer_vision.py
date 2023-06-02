@@ -32,5 +32,22 @@ torch.device(device=device)
 MODEL_PATH = Path("models")
 
 
+# get dataset
+train_data = datasets.FashionMNIST(
+    root="data",  # download to where
+    train=True,  # do we want train
+    download=True,  # download?
+    transform=ToTensor(),  # transform into tensor
+    target_transform=None  # dont transform the labels
+)
+
+test_data = datasets.FashionMNIST(
+    root="data",  # download to where
+    train=False,  # do we want train
+    download=True,  # download?
+    transform=ToTensor(),  # transform into tensor
+    target_transform=None  # dont transform the labels
+)
+
 if __name__ == "__main__":
     print('e')

@@ -296,7 +296,7 @@ if __name__ == "__main__":
         loss_fn = nn.CrossEntropyLoss()
         optimizer = torch.optim.SGD(params=model_0.parameters(), lr=0.01)
         trainTimeStart = timer()
-        epochs = 300  # 72, 76-99, 91-99.7, 95-99.9, 96-100
+        epochs = 300  # 72, 76-99, 91-99.7, 95-99.9, 98-100
         for epoch in tqdm(range(epochs)):
             train_loss = train_step(model=model_0, data_loader=train_dataloader,
                                     loss_fn=loss_fn, optimizer=optimizer,

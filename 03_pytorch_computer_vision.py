@@ -275,7 +275,7 @@ def test_step(model: torch.nn.Module, data_loader: DataLoader,
 if __name__ == "__main__":
     test = None
     try:
-        MODEL_SAVE_PATH = MODEL_PATH / "03_ComputerVision16h.pth"
+        MODEL_SAVE_PATH = MODEL_PATH / "03_ComputerVisionMaxAcc.pth"
         test = torch.load(MODEL_SAVE_PATH)
     except:
         print("ooooopsi woopsi")
@@ -289,14 +289,14 @@ if __name__ == "__main__":
         # ).to(device=device)
         model_0 = FashionMNISTModelV2(
             input_shape=1,  # number of color channels
-            hidden_units=16,
+            hidden_units=64,
             output_shape=len(class_names)  # one for each class
         ).to(device=device)
         # setup loss, optim, eval metric
         loss_fn = nn.CrossEntropyLoss()
-        optimizer = torch.optim.SGD(params=model_0.parameters(), lr=0.1)
+        optimizer = torch.optim.SGD(params=model_0.parameters(), lr=0.01)
         trainTimeStart = timer()
-        epochs = 3
+        epochs = 300  # 72, 76-99, 91-99.7, 95-99.9, 96-100
         for epoch in tqdm(range(epochs)):
             train_loss = train_step(model=model_0, data_loader=train_dataloader,
                                     loss_fn=loss_fn, optimizer=optimizer,

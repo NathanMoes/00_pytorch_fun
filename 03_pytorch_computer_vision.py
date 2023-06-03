@@ -1,3 +1,4 @@
+from helper_functions import plot_predictions, plot_decision_boundary, accuracy_fn
 import torch
 from torch import nn
 import requests
@@ -14,6 +15,8 @@ from timeit import default_timer as timer
 from tqdm.auto import tqdm
 
 
+MODEL_PATH = Path("models")
+
 if Path("helper_functions.py").is_file():
     print("helper_functions.py already exists, skipping download")
 else:
@@ -22,8 +25,6 @@ else:
         "https://raw.githubusercontent.com/mrdbourke/pytorch-deep-learning/main/helper_functions.py")
     with open("helper_functions.py", "wb") as f:
         f.write(request.content)
-
-from helper_functions import plot_predictions, plot_decision_boundary, accuracy_fn
 
 
 device = "cpu"
@@ -271,35 +272,55 @@ def test_step(model: torch.nn.Module, data_loader: DataLoader,
 
 
 if __name__ == "__main__":
-    # TinyVGG is the model of v2
-    torch.manual_seed(42)
-    # model_0 = FashionMNISTModelV0(
-    #     input_shape=784,  # 28 * 28 image
-    #     hidden_units=10,
-    #     output_shape=len(class_names)  # one for each class
-    # ).to(device=device)
-    model_0 = FashionMNISTModelV2(
-        input_shape=1,  # number of color channels
-        hidden_units=100,
-        output_shape=len(class_names)  # one for each class
-    ).to(device=device)
-    # setup loss, optim, eval metric
-    loss_fn = nn.CrossEntropyLoss()
-    optimizer = torch.optim.SGD(params=model_0.parameters(), lr=0.1)
-    trainTimeStart = timer()
-    epochs = 30
-    for epoch in tqdm(range(epochs)):
-        train_loss = train_step(model=model_0, data_loader=train_dataloader,
-                                loss_fn=loss_fn, optimizer=optimizer,
-                                acc_fn=accuracy_fn, device=device, epoch=epoch)
-        test_step(model=model_0, data_loader=test_dataloader,
-                  loss_fn=loss_fn, acc_fn=accuracy_fn, device=device)
+    test = None
+    try:
+        MODEL_SAVE_PATH = MODEL_PATH / "03_ComputerVision.pth"
+        test = torch.load(MODEL_SAVE_PATH)
+    except:
+        print("ooooopsi woopsi")
+    if (not test):
+        # TinyVGG is the model of v2
+        torch.manual_seed(42)
+        # model_0 = FashionMNISTModelV0(
+        #     input_shape=784,  # 28 * 28 image
+        #     hidden_units=10,
+        #     output_shape=len(class_names)  # one for each class
+        # ).to(device=device)
+        model_0 = FashionMNISTModelV2(
+            input_shape=1,  # number of color channels
+            hidden_units=100,
+            output_shape=len(class_names)  # one for each class
+        ).to(device=device)
+        # setup loss, optim, eval metric
+        loss_fn = nn.CrossEntropyLoss()
+        optimizer = torch.optim.SGD(params=model_0.parameters(), lr=0.1)
+        trainTimeStart = timer()
+        epochs = 30
+        for epoch in tqdm(range(epochs)):
+            train_loss = train_step(model=model_0, data_loader=train_dataloader,
+                                    loss_fn=loss_fn, optimizer=optimizer,
+                                    acc_fn=accuracy_fn, device=device, epoch=epoch)
+            test_step(model=model_0, data_loader=test_dataloader,
+                      loss_fn=loss_fn, acc_fn=accuracy_fn, device=device)
 
-    trainEndTime = timer()
-    print_train_time(
-        start=trainTimeStart, end=trainEndTime, device=str(next(model_0.parameters()).device))
-    model_res = eval_model(
-        model=model_0, data_loader=test_dataloader, loss_fn=loss_fn, accuracy_fn=accuracy_fn, device=device)
-    print(model_res)
-    # train_loop(model=model_0, loss_fn=loss_fn,
-    #            optimizer=optimizer, epochs=epochs)
+        trainEndTime = timer()
+        print_train_time(
+            start=trainTimeStart, end=trainEndTime, device=str(next(model_0.parameters()).device))
+        model_res = eval_model(
+            model=model_0, data_loader=test_dataloader, loss_fn=loss_fn, accuracy_fn=accuracy_fn, device=device)
+        print(model_res)
+
+        MODEL_PATH.mkdir(parents=True, exist_ok=True)
+        MODEL_NAME = "03_ComputerVision.pth"
+        MODEL_SAVE_PATH = MODEL_PATH / MODEL_NAME
+        torch.save(obj=model_0.state_dict(), f=MODEL_SAVE_PATH)
+        # train_loop(model=model_0, loss_fn=loss_fn,
+        #            optimizer=optimizer, epochs=epochs)
+    else:
+        MODEL_NAME = "03_ComputerVision.pth"
+        MODEL_SAVE_PATH = MODEL_PATH / MODEL_NAME
+        model_from_save = FashionMNISTModelV2(input_shape=1,  # number of color channels
+                                              hidden_units=100,
+                                              output_shape=len(class_names))
+        model_from_save.load_state_dict(torch.load(MODEL_SAVE_PATH))
+        print(model_from_save.state_dict())

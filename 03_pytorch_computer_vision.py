@@ -96,6 +96,7 @@ class FashionMNISTModelV0(nn.Module):
         self.layer_stack = nn.Sequential(
             nn.Flatten(),
             nn.Linear(in_features=input_shape, out_features=hidden_units),
+            nn.ReLU(),
             nn.Linear(in_features=hidden_units, out_features=output_shape)
         )
 
@@ -115,6 +116,8 @@ def eval_model(model: torch.nn.Module, data_loader: DataLoader,
     model.eval()
     with torch.inference_mode():
         for X, y in data_loader:
+            X = X.to(device)
+            y = y.to(device)
             y_pred = model(X)
             loss += loss_fn(y_pred, y)
             acc += accuracy_fn(y_true=y, y_pred=y_pred.argmax(dim=1))
@@ -138,13 +141,15 @@ if __name__ == "__main__":
     loss_fn = nn.CrossEntropyLoss()
     optimizer = torch.optim.SGD(params=model_0.parameters(), lr=0.1)
     trainTimeStart = timer()
-    epochs = 3
+    epochs = 30
 
     for epoch in tqdm(range(epochs)):
         print(f"Epoch: {epoch}")
         train_loss = 0
 
         for batch, (X, y) in enumerate(train_dataloader):
+            X = X.to(device)
+            y = y.to(device)
             model_0.train()
             y_pred = model_0(X)
             loss = loss_fn(y_pred, y)
@@ -161,6 +166,8 @@ if __name__ == "__main__":
         model_0.eval()
         with torch.inference_mode():
             for X, y in test_dataloader:
+                X = X.to(device)
+                y = y.to(device)
                 test_pred = model_0(X)
                 test_loss += loss_fn(test_pred, y)
                 test_acc += accuracy_fn(

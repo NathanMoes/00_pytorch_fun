@@ -118,6 +118,38 @@ class FashionMNISTModelV1(nn.Module):
         return self.layer_stack(x)
 
 
+class FashionMNISTModelV2(nn.Module):
+    def __init__(self, input_shape: int, hidden_units: int, output_shape: int, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        self.conv_block_1 = nn.Sequential(
+            nn.Conv2d(in_channels=input_shape, out_channels=hidden_units,
+                      kernel_size=3, stride=1, padding=1),
+            nn.ReLU(),
+            nn.Conv2d(in_channels=hidden_units, out_channels=hidden_units,
+                      kernel_size=3, stride=1, padding=1),
+            nn.ReLU(),
+            nn.MaxPool2d(kernel_size=2)
+        )
+        self.conv_block_2 = nn.Sequential(
+            nn.Conv2d(in_channels=hidden_units, out_channels=hidden_units,
+                      kernel_size=3, stride=1, padding=1),
+            nn.ReLU(),
+            nn.Conv2d(in_channels=hidden_units, out_channels=hidden_units,
+                      kernel_size=3, stride=1, padding=1),
+            nn.ReLU(),
+            nn.MaxPool2d(kernel_size=2)
+        )
+        self.classifier_layer = nn.Sequential(
+            nn.Flatten(),
+            nn.Linear(in_features=hidden_units*7*7, out_features=output_shape)
+        )
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        x = self.conv_block_1(x)
+        x = self.conv_block_2(x)
+        return self.classifier_layer(x)
+
+
 def print_train_time(start: float, end: float, device: torch.device = None):
     total_time = end - start
     print(f"Train time on {device}: {total_time} seconds")
@@ -125,13 +157,13 @@ def print_train_time(start: float, end: float, device: torch.device = None):
 
 
 def eval_model(model: torch.nn.Module, data_loader: DataLoader,
-               loss_fn: torch.nn.Module, accuracy_fn):
+               loss_fn: torch.nn.Module, accuracy_fn, device: torch.device = device):
     loss, acc = 0, 0
+    model.to(device=device)
     model.eval()
     with torch.inference_mode():
         for X, y in data_loader:
-            X = X.to(device)
-            y = y.to(device)
+            X, y = X.to(device), y.to(device)
             y_pred = model(X)
             loss += loss_fn(y_pred, y)
             acc += accuracy_fn(y_true=y, y_pred=y_pred.argmax(dim=1))
@@ -239,17 +271,23 @@ def test_step(model: torch.nn.Module, data_loader: DataLoader,
 
 
 if __name__ == "__main__":
+    # TinyVGG is the model of v2
     torch.manual_seed(42)
-    model_0 = FashionMNISTModelV0(
-        input_shape=784,  # 28 * 28 image
-        hidden_units=10,
+    # model_0 = FashionMNISTModelV0(
+    #     input_shape=784,  # 28 * 28 image
+    #     hidden_units=10,
+    #     output_shape=len(class_names)  # one for each class
+    # ).to(device=device)
+    model_0 = FashionMNISTModelV2(
+        input_shape=1,  # number of color channels
+        hidden_units=100,
         output_shape=len(class_names)  # one for each class
     ).to(device=device)
     # setup loss, optim, eval metric
     loss_fn = nn.CrossEntropyLoss()
     optimizer = torch.optim.SGD(params=model_0.parameters(), lr=0.1)
     trainTimeStart = timer()
-    epochs = 3
+    epochs = 30
     for epoch in tqdm(range(epochs)):
         train_loss = train_step(model=model_0, data_loader=train_dataloader,
                                 loss_fn=loss_fn, optimizer=optimizer,
@@ -261,7 +299,7 @@ if __name__ == "__main__":
     print_train_time(
         start=trainTimeStart, end=trainEndTime, device=str(next(model_0.parameters()).device))
     model_res = eval_model(
-        model=model_0, data_loader=test_dataloader, loss_fn=loss_fn, accuracy_fn=accuracy_fn)
+        model=model_0, data_loader=test_dataloader, loss_fn=loss_fn, accuracy_fn=accuracy_fn, device=device)
     print(model_res)
     # train_loop(model=model_0, loss_fn=loss_fn,
     #            optimizer=optimizer, epochs=epochs)

@@ -20,7 +20,7 @@ else:
     with open("helper_functions.py", "wb") as f:
         f.write(request.content)
 
-from helper_functions import plot_predictions, plot_decision_boundary
+from helper_functions import plot_predictions, plot_decision_boundary, accuracy_fn
 
 
 device = "cpu"
@@ -60,6 +60,8 @@ train_dataloader = DataLoader(
 test_dataloader = DataLoader(
     dataset=train_data, batch_size=BATCH_SIZE, shuffle=False)
 
+train_features_batch, train_labels_batch = next(iter(train_dataloader))
+
 
 class_names = train_data.classes
 # visualize data
@@ -81,5 +83,30 @@ plt.show()
 
 # prepare dataloader
 
+
+# make model
+
+class FashionMNISTModelV0(nn.Module):
+    def __init__(self, input_shape: int, hidden_units: int, output_shape: int, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        self.layer_stack = nn.Sequential(
+            nn.Flatten(),
+            nn.Linear(in_features=input_shape, out_features=hidden_units),
+            nn.Linear(in_features=hidden_units, out_features=output_shape)
+        )
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return self.layer_stack(x)
+
+
 if __name__ == "__main__":
+    torch.manual_seed(42)
+    model_0 = FashionMNISTModelV0(
+        input_shape=784,  # 28 * 28 image
+        hidden_units=10,
+        output_shape=len(class_names)  # one for each class
+    ).to(device=device)
+    # setup loss, optim, eval metric
+    loss_fn = nn.CrossEntropyLoss
+    optimizer = torch.optim.SGD(params=model_0.parameters(), lr=0.1)
     print('e')

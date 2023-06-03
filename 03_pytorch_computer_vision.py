@@ -274,7 +274,7 @@ def test_step(model: torch.nn.Module, data_loader: DataLoader,
 if __name__ == "__main__":
     test = None
     try:
-        MODEL_SAVE_PATH = MODEL_PATH / "03_ComputerVision.pth"
+        MODEL_SAVE_PATH = MODEL_PATH / "03_ComputerVision16h.pth"
         test = torch.load(MODEL_SAVE_PATH)
     except:
         print("ooooopsi woopsi")
@@ -288,14 +288,14 @@ if __name__ == "__main__":
         # ).to(device=device)
         model_0 = FashionMNISTModelV2(
             input_shape=1,  # number of color channels
-            hidden_units=100,
+            hidden_units=16,
             output_shape=len(class_names)  # one for each class
         ).to(device=device)
         # setup loss, optim, eval metric
         loss_fn = nn.CrossEntropyLoss()
         optimizer = torch.optim.SGD(params=model_0.parameters(), lr=0.1)
         trainTimeStart = timer()
-        epochs = 30
+        epochs = 3
         for epoch in tqdm(range(epochs)):
             train_loss = train_step(model=model_0, data_loader=train_dataloader,
                                     loss_fn=loss_fn, optimizer=optimizer,
@@ -311,14 +311,10 @@ if __name__ == "__main__":
         print(model_res)
 
         MODEL_PATH.mkdir(parents=True, exist_ok=True)
-        MODEL_NAME = "03_ComputerVision.pth"
-        MODEL_SAVE_PATH = MODEL_PATH / MODEL_NAME
         torch.save(obj=model_0.state_dict(), f=MODEL_SAVE_PATH)
         # train_loop(model=model_0, loss_fn=loss_fn,
         #            optimizer=optimizer, epochs=epochs)
     else:
-        MODEL_NAME = "03_ComputerVision.pth"
-        MODEL_SAVE_PATH = MODEL_PATH / MODEL_NAME
         model_from_save = FashionMNISTModelV2(input_shape=1,  # number of color channels
                                               hidden_units=100,
                                               output_shape=len(class_names))

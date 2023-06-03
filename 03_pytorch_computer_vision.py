@@ -96,8 +96,22 @@ class FashionMNISTModelV0(nn.Module):
         self.layer_stack = nn.Sequential(
             nn.Flatten(),
             nn.Linear(in_features=input_shape, out_features=hidden_units),
-            nn.ReLU(),
             nn.Linear(in_features=hidden_units, out_features=output_shape)
+        )
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return self.layer_stack(x)
+
+
+class FashionMNISTModelV1(nn.Module):
+    def __init__(self, input_shape: int, hidden_units: int, output_shape: int, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        self.layer_stack = nn.Sequential(
+            nn.Flatten(),
+            nn.Linear(in_features=input_shape, out_features=hidden_units),
+            nn.ReLU(),
+            nn.Linear(in_features=hidden_units, out_features=output_shape),
+            nn.ReLU()
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -130,6 +144,100 @@ def eval_model(model: torch.nn.Module, data_loader: DataLoader,
     }
 
 
+def test_loop(model: nn.Module, train_loss):
+    test_loss, test_acc = 0.0, 0.0
+    model.eval()
+    with torch.inference_mode():
+        for X, y in test_dataloader:
+            X = X.to(device)
+            y = y.to(device)
+            test_pred = model(X)
+            test_loss += loss_fn(test_pred, y)
+            test_acc += accuracy_fn(
+                y_true=y, y_pred=test_pred.argmax(dim=1))
+        test_loss /= len(test_dataloader)
+        test_acc /= len(test_dataloader)
+    print(
+        f"\nTrain loss: {train_loss} | Test loss: {test_loss}, test acc {test_acc}"
+    )
+
+
+def train_loop(model: nn.Module, loss_fn, optimizer, epochs):
+    for epoch in tqdm(range(epochs)):
+        print(f"\nEpoch: {epoch}")
+        train_loss = 0
+        for batch, (X, y) in enumerate(train_dataloader):
+            X = X.to(device)
+            y = y.to(device)
+            model.train()
+            y_pred = model(X)
+            loss = loss_fn(y_pred, y)
+            train_loss += loss
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+            if batch % 400 == 0:
+                print(
+                    f"\nLooked at {batch * len(X)}/{len(train_dataloader.dataset)} samples"
+                )
+        train_loss /= len(train_dataloader)
+        test_loop(model=model, train_loss=train_loss)
+    trainEndTime = timer()
+    print_train_time(
+        start=trainTimeStart, end=trainEndTime, device=str(next(model.parameters()).device))
+    model_res = eval_model(
+        model=model, data_loader=test_dataloader, loss_fn=loss_fn, accuracy_fn=accuracy_fn)
+    print(model_res)
+
+
+def train_step(model: torch.nn.Module,
+               data_loader: DataLoader,
+               loss_fn: torch.nn.Module,
+               optimizer: torch.optim.Optimizer,
+               acc_fn: accuracy_fn,
+               device: torch.device = device,
+               epoch: int = 0) -> int:
+    print(f"\nEpoch: {epoch}")
+    train_loss, train_acc = 0, 0  # init loss and acc
+    model.train()  # set to train mode
+    for batch, (X, y) in enumerate(data_loader):  # loop over training batches
+        X, y = X.to(device), y.to(device)  # set to device
+        y_pred = model(X)  # do forward pass
+        loss = loss_fn(y_pred, y)
+        train_loss += loss
+        # from logits -> labels
+        train_acc += acc_fn(y_true=y, y_pred=y_pred.argmax(dim=1))
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+        if batch % 400 == 0:
+            print(
+                f"\nLooked at {batch * len(X)}/{len(data_loader.dataset)} samples"
+            )
+    train_loss /= len(data_loader)
+    train_acc /= len(data_loader)
+    print(f"Train loss: {train_loss} | Train acc: {train_acc}%")
+    return train_loss
+
+
+def test_step(model: torch.nn.Module, data_loader: DataLoader,
+              loss_fn: torch.nn.Module, acc_fn: accuracy_fn,
+              device: torch.device = device):
+    test_loss, test_acc = 0, 0
+    model.to(device=device)
+    model.eval()
+    with torch.inference_mode():
+        for X, y in data_loader:
+            X, y = X.to(device), y.to(device)
+            test_pred = model(X)  # foreward pass
+            test_loss += loss_fn(test_pred, y)  # calc loss
+            # calc acc
+            test_acc += acc_fn(y_true=y, y_pred=test_pred.argmax(dim=1))
+        test_loss /= len(data_loader)
+        test_acc /= len(data_loader)
+        print(f"Test loss: {test_loss} | Test acc: {test_acc}%\n")
+
+
 if __name__ == "__main__":
     torch.manual_seed(42)
     model_0 = FashionMNISTModelV0(
@@ -141,45 +249,19 @@ if __name__ == "__main__":
     loss_fn = nn.CrossEntropyLoss()
     optimizer = torch.optim.SGD(params=model_0.parameters(), lr=0.1)
     trainTimeStart = timer()
-    epochs = 30
-
+    epochs = 3
     for epoch in tqdm(range(epochs)):
-        print(f"Epoch: {epoch}")
-        train_loss = 0
+        train_loss = train_step(model=model_0, data_loader=train_dataloader,
+                                loss_fn=loss_fn, optimizer=optimizer,
+                                acc_fn=accuracy_fn, device=device, epoch=epoch)
+        test_step(model=model_0, data_loader=test_dataloader,
+                  loss_fn=loss_fn, acc_fn=accuracy_fn, device=device)
 
-        for batch, (X, y) in enumerate(train_dataloader):
-            X = X.to(device)
-            y = y.to(device)
-            model_0.train()
-            y_pred = model_0(X)
-            loss = loss_fn(y_pred, y)
-            train_loss += loss
-            optimizer.zero_grad()
-            loss.backward()
-            optimizer.step()
-            if batch % 400 == 0:
-                print(
-                    f"Looked at {batch * len(X)}/{len(train_dataloader.dataset)} samples")
-        #
-        train_loss /= len(train_dataloader)
-        test_loss, test_acc = 0.0, 0.0
-        model_0.eval()
-        with torch.inference_mode():
-            for X, y in test_dataloader:
-                X = X.to(device)
-                y = y.to(device)
-                test_pred = model_0(X)
-                test_loss += loss_fn(test_pred, y)
-                test_acc += accuracy_fn(
-                    y_true=y, y_pred=test_pred.argmax(dim=1))
-            test_loss /= len(test_dataloader)
-            test_acc /= len(test_dataloader)
-        print(
-            f"\nTrain loss: {train_loss} | Test loss: {test_loss}, test acc {test_acc}"
-        )
     trainEndTime = timer()
-    totalTraintime = print_train_time(
+    print_train_time(
         start=trainTimeStart, end=trainEndTime, device=str(next(model_0.parameters()).device))
-    model_0_res = eval_model(
+    model_res = eval_model(
         model=model_0, data_loader=test_dataloader, loss_fn=loss_fn, accuracy_fn=accuracy_fn)
-    print(model_0_res)
+    print(model_res)
+    # train_loop(model=model_0, loss_fn=loss_fn,
+    #            optimizer=optimizer, epochs=epochs)

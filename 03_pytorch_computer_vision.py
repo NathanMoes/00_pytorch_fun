@@ -63,7 +63,7 @@ train_dataloader = DataLoader(
     dataset=train_data, batch_size=BATCH_SIZE, shuffle=True)
 
 test_dataloader = DataLoader(
-    dataset=train_data, batch_size=BATCH_SIZE, shuffle=False)
+    dataset=test_data, batch_size=BATCH_SIZE, shuffle=False)
 
 train_features_batch, train_labels_batch = next(
     iter(train_dataloader))
@@ -273,9 +273,10 @@ def test_step(model: torch.nn.Module, data_loader: DataLoader,
 
 
 if __name__ == "__main__":
+    HIDDEN_UNITS = 512
     test = None
     try:
-        MODEL_SAVE_PATH = MODEL_PATH / "03_ComputerVisionMaxAcc.pth"
+        MODEL_SAVE_PATH = MODEL_PATH / "03_ComputerVision91pt3.pth"
         test = torch.load(MODEL_SAVE_PATH)
     except:
         print("ooooopsi woopsi")
@@ -289,14 +290,14 @@ if __name__ == "__main__":
         # ).to(device=device)
         model_0 = FashionMNISTModelV2(
             input_shape=1,  # number of color channels
-            hidden_units=64,
+            hidden_units=HIDDEN_UNITS,
             output_shape=len(class_names)  # one for each class
         ).to(device=device)
         # setup loss, optim, eval metric
         loss_fn = nn.CrossEntropyLoss()
         optimizer = torch.optim.SGD(params=model_0.parameters(), lr=0.01)
         trainTimeStart = timer()
-        epochs = 100  # 72, 76-99, 91-99.7, 95-99.9, 98-100
+        epochs = 20  # 72, 76-99, 91-99.7, 95-99.9, 98-100
         for epoch in tqdm(range(epochs)):
             train_loss = train_step(model=model_0, data_loader=train_dataloader,
                                     loss_fn=loss_fn, optimizer=optimizer,
@@ -317,7 +318,39 @@ if __name__ == "__main__":
         #            optimizer=optimizer, epochs=epochs)
     else:
         model_from_save = FashionMNISTModelV2(input_shape=1,  # number of color channels
-                                              hidden_units=100,
+                                              hidden_units=HIDDEN_UNITS,
                                               output_shape=len(class_names))
         model_from_save.load_state_dict(torch.load(MODEL_SAVE_PATH))
-        print(model_from_save.state_dict())
+
+        # 1. Make predictions with trained model
+        y_preds = []
+        model_from_save.to(device=device)
+        model_from_save.eval()
+        with torch.inference_mode():
+            for X, y in tqdm(test_dataloader, desc="Making predictions"):
+                # Send data and targets to target device
+                X, y = X.to(device), y.to(device)
+                # Do the forward pass
+                y_logit = model_from_save(X)
+                # Turn predictions from logits -> prediction probabilities -> predictions labels
+                y_pred = torch.softmax(y_logit, dim=1).argmax(dim=1)
+                # Put predictions on CPU for evaluation
+                y_preds.append(y_pred.cpu())
+        # Concatenate list of predictions into a tensor
+        y_pred_tensor = torch.cat(y_preds)
+        from torchmetrics import ConfusionMatrix
+        from mlxtend.plotting import plot_confusion_matrix
+
+        # 2. Setup confusion matrix instance and compare predictions to targets
+        confmat = ConfusionMatrix(
+            num_classes=len(class_names), task='multiclass')
+        confmat_tensor = confmat(preds=y_pred_tensor,
+                                 target=test_data.targets)
+
+        # 3. Plot the confusion matrix
+        fig, ax = plot_confusion_matrix(
+            conf_mat=confmat_tensor.numpy(),  # matplotlib likes working with NumPy
+            class_names=class_names,  # turn the row and column labels into class names
+            figsize=(10, 7)
+        )
+        plt.show()

@@ -10,6 +10,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from torch.utils.data import DataLoader
 from torchvision import datasets, transforms
+from typing import Tuple, Dict, List
 
 
 random.seed(42)
@@ -130,6 +131,40 @@ train_dataloader = DataLoader(
     dataset=train_data, batch_size=BATCH_SIZE, shuffle=True, num_workers=os.cpu_count())
 test_dataloader = DataLoader(
     dataset=test_data, batch_size=BATCH_SIZE, shuffle=True, num_workers=os.cpu_count())
+
+target_dir = train_dir
+# create function to get the class names using os.scandir() to traverse directory, and raise an error if class names aren't found. turn class names into a dict and a list and return them
+
+class_names_found = sorted(
+    [entry.name for entry in list(os.scandir(target_dir))])
+
+
+def get_class_names(target_dir: str) -> Tuple[Dict[str, int], List[str]]:
+    classes = sorted(entry.name for entry in os.scandir(
+        target_dir) if entry.is_dir())
+    if not classes:
+        raise FileNotFoundError(
+            f"couldn't find any classes in {target_dir}... please check file structure")
+    class_to_idx = {class_name: i for i, class_name in enumerate(classes)}
+    return (class_to_idx, classes)
+# loading image data with custom dataset
+
+
+class PizzaSteakSushiDataset(torch.utils.data.Dataset):
+    def __init__(self, image_paths, transform=None):
+        super.__init__()
+        self.image_paths = image_paths
+        self.transform = transform
+
+    def __len__(self):
+        return len(self.image_paths)
+
+    def __getitem__(self, index):
+        image = Image.open(self.image_paths[index])
+        if self.transform:
+            image = self.transform(image)
+        return image, torch.tensor(class_dict[self.image_paths[index].parent.stem])
+
 
 if __name__ == "__main__":
     plot_transformed_images(image_paths=image_path_list,

@@ -130,7 +130,7 @@ print(f"Label Data type: {type(label)}")
 train_dataloader = DataLoader(
     dataset=train_data, batch_size=BATCH_SIZE, shuffle=True, num_workers=os.cpu_count())
 test_dataloader = DataLoader(
-    dataset=test_data, batch_size=BATCH_SIZE, shuffle=True, num_workers=os.cpu_count())
+    dataset=test_data, batch_size=BATCH_SIZE, shuffle=False, num_workers=os.cpu_count())
 
 target_dir = train_dir
 # create function to get the class names using os.scandir() to traverse directory, and raise an error if class names aren't found. turn class names into a dict and a list and return them
@@ -183,6 +183,15 @@ test_transforms = transforms.Compose([
     transforms.ToTensor()
 ])
 
+train_data_custom = PizzaSteakSushiDataset(
+    image_paths=train_dir, transform=train_transforms)
+test_data_custom = PizzaSteakSushiDataset(
+    image_paths=test_dir, transform=test_transforms)
+train_dataloader_custom = DataLoader(
+    dataset=train_data_custom, batch_size=BATCH_SIZE, shuffle=True, num_workers=os.cpu_count())
+test_dataloader_custom = DataLoader(
+    dataset=test_data_custom, batch_size=BATCH_SIZE, shuffle=False, num_workers=os.cpu_count())
+
 
 def display_random_image(dataset: torch.utils.data.Dataset, classes: List[str] = None,
                          n: int = 10, display_shape: bool = True, seed: int = None):
@@ -212,10 +221,6 @@ def display_random_image(dataset: torch.utils.data.Dataset, classes: List[str] =
 if __name__ == "__main__":
     # plot_transformed_images(image_paths=image_path_list,
     #                         transform=data_transform, n=3, seed=42)
-    train_data_custom = PizzaSteakSushiDataset(
-        image_paths=train_dir, transform=train_transforms)
-    test_data_custom = PizzaSteakSushiDataset(
-        image_paths=test_dir, transform=test_transforms)
     display_random_image(dataset=train_data_custom,
                          classes=train_data_custom.classes, n=5, seed=None)
     print("E")

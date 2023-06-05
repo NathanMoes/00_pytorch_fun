@@ -152,11 +152,11 @@ def get_class_names(target_dir: str) -> Tuple[Dict[str, int], List[str]]:
 
 class PizzaSteakSushiDataset(torch.utils.data.Dataset):
     def __init__(self, image_paths: str, transform=None):
-        super.__init__()
+        super().__init__()
         # get all images in sub dir of path
         self.image_paths = list(Path(image_paths).glob("*/*.jpg"))
         self.transform = transform
-        self.classes, self.class_to_idx = get_class_names(image_paths)
+        self.class_to_idx, self.classes = get_class_names(image_paths)
 
     def __len__(self):
         return len(self.image_paths)
@@ -184,6 +184,31 @@ test_transforms = transforms.Compose([
 ])
 
 
+def display_random_image(dataset: torch.utils.data.Dataset, classes: List[str] = None,
+                         n: int = 10, display_shape: bool = True, seed: int = None):
+    if seed:
+        random.seed(seed)
+    if n > 10:
+        n = 10
+        display_shape = False
+        print(f"Too large number of displays")
+    random_image_indices = random.sample(range(len(dataset)), k=n)
+    plt.figure(figsize=(16, 8))
+    for i, target_sample in enumerate(random_image_indices):
+        image, label = dataset[target_sample][0], dataset[target_sample][1]
+        # set color channel to be last instead of first
+        image_adj = image.permute(1, 2, 0)
+        plt.subplot(1, n, i+1)
+        plt.imshow(image_adj)
+        plt.axis('off')
+        if classes:
+            title = f"Class: {classes[label]}"
+            if display_shape:
+                title = title + f"\nshape: {image_adj.shape}"
+            plt.title(title)
+    plt.show()
+
+
 if __name__ == "__main__":
     # plot_transformed_images(image_paths=image_path_list,
     #                         transform=data_transform, n=3, seed=42)
@@ -191,4 +216,6 @@ if __name__ == "__main__":
         image_paths=train_dir, transform=train_transforms)
     test_data_custom = PizzaSteakSushiDataset(
         image_paths=test_dir, transform=test_transforms)
+    display_random_image(dataset=train_data_custom,
+                         classes=train_data_custom.classes, n=5, seed=None)
     print("E")

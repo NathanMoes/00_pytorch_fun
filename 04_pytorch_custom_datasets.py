@@ -108,6 +108,15 @@ def plot_transformed_images(image_paths: list, transform, n=3, seed=None):
     plt.show()
 
 
+train_data = datasets.ImageFolder(
+    root=train_dir, transform=data_transform, target_transform=None)
+
+test_data = datasets.ImageFolder(
+    root=test_dir, transform=data_transform, target_transform=None)
+
+class_names = train_data.classes
+class_dict = train_data.class_to_idx
+
 if __name__ == "__main__":
     plot_transformed_images(image_paths=image_path_list,
                             transform=data_transform, n=3, seed=42)

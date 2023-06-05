@@ -117,6 +117,19 @@ test_data = datasets.ImageFolder(
 class_names = train_data.classes
 class_dict = train_data.class_to_idx
 
+image, label = train_data[0][0], train_data[0][1]
+print(f"Image tensor:\n {image}")
+print(f"Image label:\n {label}")
+print(f"Image class name:\n {class_names[label]}")
+print(f"Image datatype: {image.dtype}")
+print(f"Image datatype: {image.shape}")
+print(f"Label Data type: {type(label)}")
+
+train_dataloader = DataLoader(
+    dataset=train_data, batch_size=32, shuffle=True, num_workers=os.cpu_count())
+test_dataloader = DataLoader(
+    dataset=test_data, batch_size=32, shuffle=True, num_workers=os.cpu_count())
+
 if __name__ == "__main__":
     plot_transformed_images(image_paths=image_path_list,
                             transform=data_transform, n=3, seed=42)

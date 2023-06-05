@@ -76,6 +76,7 @@ plt.show()
 
 IMAGE_HEIGHT = 64
 IMAGE_WIDTH = 64
+BATCH_SIZE = 32
 
 data_transform = transforms.Compose([
     # resize to 64 x 64
@@ -126,9 +127,9 @@ print(f"Image datatype: {image.shape}")
 print(f"Label Data type: {type(label)}")
 
 train_dataloader = DataLoader(
-    dataset=train_data, batch_size=32, shuffle=True, num_workers=os.cpu_count())
+    dataset=train_data, batch_size=BATCH_SIZE, shuffle=True, num_workers=os.cpu_count())
 test_dataloader = DataLoader(
-    dataset=test_data, batch_size=32, shuffle=True, num_workers=os.cpu_count())
+    dataset=test_data, batch_size=BATCH_SIZE, shuffle=True, num_workers=os.cpu_count())
 
 if __name__ == "__main__":
     plot_transformed_images(image_paths=image_path_list,

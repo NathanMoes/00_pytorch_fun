@@ -151,22 +151,44 @@ def get_class_names(target_dir: str) -> Tuple[Dict[str, int], List[str]]:
 
 
 class PizzaSteakSushiDataset(torch.utils.data.Dataset):
-    def __init__(self, image_paths, transform=None):
+    def __init__(self, image_paths: str, transform=None):
         super.__init__()
-        self.image_paths = image_paths
+        # get all images in sub dir of path
+        self.image_paths = list(Path(image_paths).glob("*/*.jpg"))
         self.transform = transform
+        self.classes, self.class_to_idx = get_class_names(image_paths)
 
     def __len__(self):
         return len(self.image_paths)
 
-    def __getitem__(self, index):
-        image = Image.open(self.image_paths[index])
+    def load_image(self, index: int) -> Image.Image:
+        return Image.open(self.image_paths[index])
+
+    def __getitem__(self, index) -> Tuple[torch.Tensor, int]:
+        image = self.load_image(index)
+        label = self.class_to_idx[self.image_paths[index].parent.name]
         if self.transform:
             image = self.transform(image)
-        return image, torch.tensor(class_dict[self.image_paths[index].parent.stem])
+        return image, label
+
+
+train_transforms = transforms.Compose([
+    transforms.Resize(size=(64, 64)),
+    transforms.RandomHorizontalFlip(p=0.5),
+    transforms.ToTensor()
+])
+
+test_transforms = transforms.Compose([
+    transforms.Resize(size=(64, 64)),
+    transforms.ToTensor()
+])
 
 
 if __name__ == "__main__":
-    plot_transformed_images(image_paths=image_path_list,
-                            transform=data_transform, n=3, seed=42)
+    # plot_transformed_images(image_paths=image_path_list,
+    #                         transform=data_transform, n=3, seed=42)
+    train_data_custom = PizzaSteakSushiDataset(
+        image_paths=train_dir, transform=train_transforms)
+    test_data_custom = PizzaSteakSushiDataset(
+        image_paths=test_dir, transform=test_transforms)
     print("E")

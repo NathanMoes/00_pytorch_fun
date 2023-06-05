@@ -183,6 +183,18 @@ test_transforms = transforms.Compose([
     transforms.ToTensor()
 ])
 
+train_transform = transforms.Compose([
+    transforms.Resize(size=(224, 224)),
+    transforms.TrivialAugmentWide(num_magnitude_bins=31),
+    transforms.ToTensor()
+])
+
+test_transform = transforms.Compose([
+    transforms.Resize(size=(224, 224)),
+    transforms.ToTensor()
+])
+
+
 train_data_custom = PizzaSteakSushiDataset(
     image_paths=train_dir, transform=train_transforms)
 test_data_custom = PizzaSteakSushiDataset(
@@ -219,8 +231,8 @@ def display_random_image(dataset: torch.utils.data.Dataset, classes: List[str] =
 
 
 if __name__ == "__main__":
-    # plot_transformed_images(image_paths=image_path_list,
-    #                         transform=data_transform, n=3, seed=42)
-    display_random_image(dataset=train_data_custom,
-                         classes=train_data_custom.classes, n=5, seed=None)
+    plot_transformed_images(image_paths=image_path_list,
+                            transform=train_transform, n=5, seed=42)
+    # display_random_image(dataset=train_data_custom,
+    #                      classes=train_data_custom.classes, n=5, seed=None)
     print("E")

@@ -230,6 +230,51 @@ def display_random_image(dataset: torch.utils.data.Dataset, classes: List[str] =
     plt.show()
 
 
+simple_transform = transforms.Compose([
+    transforms.Resize(size=(64, 64)),
+    transforms.ToTensor()
+])
+
+train_data_simple = datasets.ImageFolder(
+    root=train_dir, transform=simple_transform)
+test_data_simple = datasets.ImageFolder(
+    root=test_dir, transform=simple_transform)
+
+simple_train_dataloader = DataLoader(
+    dataset=train_data_simple, batch_size=BATCH_SIZE, num_workers=os.cpu_count(), shuffle=True)
+simple_test_dataloader = DataLoader(
+    dataset=test_data_simple, batch_size=BATCH_SIZE, shuffle=False, num_workers=os.cpu_count()
+)
+
+
+class TinyVGG(torch.nn.Module):
+    def __init__(self, inputShape, outputShape, hiddenNodes, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        self.conv1 = nn.Sequential(
+            nn.Conv2d(in_channels=inputShape,
+                      out_channels=hiddenNodes, kernel_size=3, stride=1, padding=1),
+            nn.ReLU(),
+            nn.Conv2d(in_channels=hiddenNodes, out_channels=hiddenNodes,
+                      kernel_size=3, stride=1, padding=1),
+            nn.ReLU(),
+            nn.MaxPool2d(kernel_size=2)
+        )
+        self.conv2 = nn.Sequential(
+            nn.Conv2d(in_channels=hiddenNodes, out_channels=hiddenNodes),
+            nn.ReLU(),
+            nn.Conv2d(in_channels=hiddenNodes, out_channels=hiddenNodes),
+            nn.ReLU(),
+            nn.MaxPool2d(kernel_size=2)
+        )
+        self.classifier_layer = nn.Sequential(
+            nn.Flatten(),
+            nn.Linear(in_features=hiddenNodes*16*16, out_features=outputShape)
+        )
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return self.classifier_layer(self.conv2(self.conv1(x)))
+
+
 if __name__ == "__main__":
     plot_transformed_images(image_paths=image_path_list,
                             transform=train_transform, n=5, seed=42)

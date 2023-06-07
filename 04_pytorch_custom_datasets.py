@@ -84,6 +84,7 @@ plt.show()
 IMAGE_HEIGHT = 64
 IMAGE_WIDTH = 64
 BATCH_SIZE = 32
+IMAGE_OUT_MULT = ((IMAGE_HEIGHT / 2) / 2) * ((IMAGE_HEIGHT / 2) / 2)
 
 data_transform = transforms.Compose([
     # resize to 64 x 64
@@ -276,7 +277,7 @@ class TinyVGG(torch.nn.Module):
         )
         self.classifier_layer = nn.Sequential(
             nn.Flatten(),
-            nn.Linear(in_features=hiddenNodes*16*16,
+            nn.Linear(in_features=hiddenNodes*int(IMAGE_OUT_MULT),
                       out_features=outputShape)
         )
 
@@ -318,7 +319,7 @@ def train_step(model: torch.nn.Module, dataloader: DataLoader, loss_fn: torch.nn
         train_acc += (y_pred_class == y).sum().item()/len(y_pred)
     train_loss /= len(dataloader)
     train_acc /= len(dataloader)
-    print(f"Train loss: {train_loss} | Train acc: {train_acc}%\n")
+    # print(f"Train loss: {train_loss} | Train acc: {train_acc}%\n")
     return train_loss, train_acc
 
 
@@ -366,6 +367,27 @@ def plot_loss_curves(results: Dict[str, List[float]]):
     plt.show()
 
 
+train_trainsform_trivial = transforms.Compose([
+    transforms.Resize((IMAGE_HEIGHT, IMAGE_WIDTH)),
+    transforms.TrivialAugmentWide(num_magnitude_bins=31),
+    transforms.ToTensor()
+])
+
+test_transform_simple = transforms.Compose([
+    transforms.Resize((IMAGE_HEIGHT, IMAGE_WIDTH)),
+    transforms.ToTensor()
+])
+
+train_data_augmented = datasets.ImageFolder(
+    root=train_dir, transform=train_trainsform_trivial)
+test_data_simple = datasets.ImageFolder(
+    root=test_dir, transform=test_transform_simple)
+
+train_dataloader_augmented = DataLoader(
+    dataset=train_data_augmented, batch_size=BATCH_SIZE, shuffle=True, num_workers=CPU_COUNT)
+test_dataloader_simple = DataLoader(
+    dataset=test_data_simple, batch_size=BATCH_SIZE, shuffle=False, num_workers=CPU_COUNT)
+
 if __name__ == "__main__":
     # plot_transformed_images(image_paths=image_path_list,
     #                         transform=train_transform, n=5, seed=42)
@@ -375,16 +397,16 @@ if __name__ == "__main__":
     torch.cuda.manual_seed(42)
     # input = num color channels
     # output = num classes
-    first_model = TinyVGG(inputShape=3, hiddenNodes=512,
+    first_model = TinyVGG(inputShape=3, hiddenNodes=16,
                           outputShape=len(class_names), imageDim=64).to(device)
-    summary(first_model, input_size=[1, 3, 64, 64])
+    summary(first_model, input_size=[1, 3, IMAGE_HEIGHT, IMAGE_WIDTH])
     # epoch batch train loop for pytorch model
-    EPOCHS = 10
+    EPOCHS = 100
     loss_fn = nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(first_model.parameters(), lr=0.001)
     start_time = timer()
     model_results = train(model=first_model, loss_fn=loss_fn,
-                          optimizer=optimizer, epochs=EPOCHS, train_dataloader=simple_train_dataloader, test_dataloader=simple_test_dataloader)
+                          optimizer=optimizer, epochs=EPOCHS, train_dataloader=train_dataloader_augmented, test_dataloader=test_dataloader_simple)
     end_time = timer()
     print(f"Training took {end_time-start_time} seconds")
     plot_loss_curves(model_results)

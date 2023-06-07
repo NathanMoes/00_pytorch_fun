@@ -15,6 +15,7 @@ from tqdm.auto import tqdm
 from helper_functions import plot_predictions, plot_decision_boundary, accuracy_fn
 import torchinfo
 from torchinfo import summary
+from timeit import default_timer as timer
 
 
 random.seed(42)
@@ -283,7 +284,7 @@ class TinyVGG(torch.nn.Module):
         return self.classifier_layer(self.conv2(self.conv1(x)))
 
 
-def test_step(model: torch.nn.Module, dataloader: DataLoader, loss_fn: torch.nn.Module):
+def test_step(model: torch.nn.Module, dataloader: DataLoader, loss_fn: torch.nn.Module, device=device):
     model.eval()
     test_loss, test_acc = 0, 0
     with torch.inference_mode():
@@ -301,7 +302,7 @@ def test_step(model: torch.nn.Module, dataloader: DataLoader, loss_fn: torch.nn.
 
 
 def train_step(model: torch.nn.Module, dataloader: DataLoader, loss_fn: torch.nn.Module,
-               optimizer: torch.optim.Optimizer):
+               optimizer: torch.optim.Optimizer, device=device):
     model.train()
     train_loss, train_acc = 0, 0
     for batch, (X, y) in enumerate(dataloader):
@@ -315,37 +316,75 @@ def train_step(model: torch.nn.Module, dataloader: DataLoader, loss_fn: torch.nn
         optimizer.step()
         y_pred_class = torch.argmax(torch.softmax(y_pred, dim=1), dim=1)
         train_acc += (y_pred_class == y).sum().item()/len(y_pred)
-        if batch % 10 == 0:
-            print(
-                f"Looked at {batch * len(X)}/{len(dataloader.dataset)} samples")
     train_loss /= len(dataloader)
     train_acc /= len(dataloader)
     print(f"Train loss: {train_loss} | Train acc: {train_acc}%\n")
-    # return train_loss, train_acc
+    return train_loss, train_acc
 
 
 def train(epochs: int, train_dataloader: DataLoader, test_dataloader: DataLoader,
           loss_fn: torch.nn.Module, optimizer: torch.optim.Optimizer, model: torch.nn.Module, device=device):
-    
+    results = {"train_loss": [],
+               "train_acc": [],
+               "test_loss": [],
+               "test_acc": []}
     for epoch in tqdm(range(epochs)):
-        train_step(model=model, dataloader=train_dataloader,
-                   loss_fn=loss_fn, optimizer=optimizer)
-        test_step(model=model, dataloader=test_dataloader, loss_fn=loss_fn)
+        train_loss, train_acc = train_step(model=model, dataloader=train_dataloader,
+                                           loss_fn=loss_fn, optimizer=optimizer, device=device)
+        test_loss, test_acc = test_step(
+            model=model, dataloader=test_dataloader, loss_fn=loss_fn, device=device)
+        print(
+            f"Epoch: {epoch} | Train loss: {train_loss} | Train acc: {train_acc}\n Test loss {test_loss} | Test acc: {test_acc}")
+        results["train_loss"].append(train_loss)
+        results["train_acc"].append(train_acc)
+        results["test_loss"].append(test_loss)
+        results["test_acc"].append(test_acc)
+    return results
+
+
+def plot_loss_curves(results: Dict[str, List[float]]):
+    train_loss = results["train_loss"]
+    test_loss = results["test_loss"]
+    accuracy = results["train_acc"]
+    test_accuracy = results["test_acc"]
+    epochs = range(len(results["train_loss"]))
+    plt.figure(figsize=(15, 7))
+    plt.subplot(1, 2, 1)
+    plt.plot(epochs, train_loss, label="Train loss")
+    plt.plot(epochs, test_loss, label="Test loss")
+    plt.title("Loss vs Epochs")
+    plt.xlabel("Epochs")
+    plt.ylabel("Loss")
+    plt.legend()
+    plt.subplot(1, 2, 2)
+    plt.plot(epochs, accuracy, label="Train accuracy")
+    plt.plot(epochs, test_accuracy, label="Test accuracy")
+    plt.title("Accuracy vs Epochs")
+    plt.xlabel("Epochs")
+    plt.ylabel("Accuracy")
+    plt.legend()
+    plt.show()
 
 
 if __name__ == "__main__":
-    print(train_data)
     # plot_transformed_images(image_paths=image_path_list,
     #                         transform=train_transform, n=5, seed=42)
     # display_random_image(dataset=train_data_custom,
     #                      classes=train_data_custom.classes, n=5, seed=None)
     torch.manual_seed(42)
-    first_model = TinyVGG(inputShape=3, hiddenNodes=10,
+    torch.cuda.manual_seed(42)
+    # input = num color channels
+    # output = num classes
+    first_model = TinyVGG(inputShape=3, hiddenNodes=512,
                           outputShape=len(class_names), imageDim=64).to(device)
     summary(first_model, input_size=[1, 3, 64, 64])
     # epoch batch train loop for pytorch model
-    EPOCHS = 100
+    EPOCHS = 10
     loss_fn = nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(first_model.parameters(), lr=0.001)
-    train(model=first_model, loss_fn=loss_fn,
-          optimizer=optimizer, epochs=EPOCHS, train_dataloader= , test_dataloader=)
+    start_time = timer()
+    model_results = train(model=first_model, loss_fn=loss_fn,
+                          optimizer=optimizer, epochs=EPOCHS, train_dataloader=simple_train_dataloader, test_dataloader=simple_test_dataloader)
+    end_time = timer()
+    print(f"Training took {end_time-start_time} seconds")
+    plot_loss_curves(model_results)

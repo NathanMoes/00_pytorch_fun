@@ -11,9 +11,14 @@ import matplotlib.pyplot as plt
 from torch.utils.data import DataLoader
 from torchvision import datasets, transforms
 from typing import Tuple, Dict, List
+from tqdm.auto import tqdm
+from helper_functions import plot_predictions, plot_decision_boundary, accuracy_fn
+import torchinfo
+from torchinfo import summary
 
 
 random.seed(42)
+CPU_COUNT = 0
 
 
 def walk_through_dir(dir_path):
@@ -128,9 +133,9 @@ print(f"Image datatype: {image.shape}")
 print(f"Label Data type: {type(label)}")
 
 train_dataloader = DataLoader(
-    dataset=train_data, batch_size=BATCH_SIZE, shuffle=True, num_workers=os.cpu_count())
+    dataset=train_data, batch_size=BATCH_SIZE, shuffle=True, num_workers=CPU_COUNT)
 test_dataloader = DataLoader(
-    dataset=test_data, batch_size=BATCH_SIZE, shuffle=False, num_workers=os.cpu_count())
+    dataset=test_data, batch_size=BATCH_SIZE, shuffle=False, num_workers=CPU_COUNT)
 
 target_dir = train_dir
 # create function to get the class names using os.scandir() to traverse directory, and raise an error if class names aren't found. turn class names into a dict and a list and return them
@@ -200,9 +205,9 @@ train_data_custom = PizzaSteakSushiDataset(
 test_data_custom = PizzaSteakSushiDataset(
     image_paths=test_dir, transform=test_transforms)
 train_dataloader_custom = DataLoader(
-    dataset=train_data_custom, batch_size=BATCH_SIZE, shuffle=True, num_workers=os.cpu_count())
+    dataset=train_data_custom, batch_size=BATCH_SIZE, shuffle=True, num_workers=CPU_COUNT)
 test_dataloader_custom = DataLoader(
-    dataset=test_data_custom, batch_size=BATCH_SIZE, shuffle=False, num_workers=os.cpu_count())
+    dataset=test_data_custom, batch_size=BATCH_SIZE, shuffle=False, num_workers=CPU_COUNT)
 
 
 def display_random_image(dataset: torch.utils.data.Dataset, classes: List[str] = None,
@@ -241,14 +246,14 @@ test_data_simple = datasets.ImageFolder(
     root=test_dir, transform=simple_transform)
 
 simple_train_dataloader = DataLoader(
-    dataset=train_data_simple, batch_size=BATCH_SIZE, num_workers=os.cpu_count(), shuffle=True)
+    dataset=train_data_simple, batch_size=BATCH_SIZE, num_workers=CPU_COUNT, shuffle=True)
 simple_test_dataloader = DataLoader(
-    dataset=test_data_simple, batch_size=BATCH_SIZE, shuffle=False, num_workers=os.cpu_count()
+    dataset=test_data_simple, batch_size=BATCH_SIZE, shuffle=False, num_workers=CPU_COUNT
 )
 
 
 class TinyVGG(torch.nn.Module):
-    def __init__(self, inputShape, outputShape, hiddenNodes, *args, **kwargs) -> None:
+    def __init__(self, inputShape: int, outputShape: int, imageDim: int,  hiddenNodes: int, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self.conv1 = nn.Sequential(
             nn.Conv2d(in_channels=inputShape,
@@ -257,27 +262,90 @@ class TinyVGG(torch.nn.Module):
             nn.Conv2d(in_channels=hiddenNodes, out_channels=hiddenNodes,
                       kernel_size=3, stride=1, padding=1),
             nn.ReLU(),
-            nn.MaxPool2d(kernel_size=2)
+            nn.MaxPool2d(kernel_size=2, stride=2)
         )
         self.conv2 = nn.Sequential(
-            nn.Conv2d(in_channels=hiddenNodes, out_channels=hiddenNodes),
+            nn.Conv2d(in_channels=hiddenNodes, out_channels=hiddenNodes,
+                      kernel_size=3, stride=1, padding=1),
             nn.ReLU(),
-            nn.Conv2d(in_channels=hiddenNodes, out_channels=hiddenNodes),
+            nn.Conv2d(in_channels=hiddenNodes, out_channels=hiddenNodes,
+                      kernel_size=3, stride=1, padding=1),
             nn.ReLU(),
-            nn.MaxPool2d(kernel_size=2)
+            nn.MaxPool2d(kernel_size=2, stride=2)
         )
         self.classifier_layer = nn.Sequential(
             nn.Flatten(),
-            nn.Linear(in_features=hiddenNodes*16*16, out_features=outputShape)
+            nn.Linear(in_features=hiddenNodes*16*16,
+                      out_features=outputShape)
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return self.classifier_layer(self.conv2(self.conv1(x)))
 
 
+def test_step(model: torch.nn.Module, dataloader: DataLoader, loss_fn: torch.nn.Module):
+    model.eval()
+    test_loss, test_acc = 0, 0
+    with torch.inference_mode():
+        for batch, (X, y) in enumerate(dataloader):
+            X, y = X.to(device), y.to(device)
+            test_pred_logits = model(X)  # forward pass
+            loss = loss_fn(test_pred_logits, y)  # calc loss
+            test_loss += loss.item()
+            test_pred_labels = test_pred_logits.argmax(dim=1)
+            test_acc += (test_pred_labels == y).sum().item() / \
+                len(test_pred_labels)
+    test_loss /= len(dataloader)
+    test_acc /= len(dataloader)
+    return test_loss, test_acc
+
+
+def train_step(model: torch.nn.Module, dataloader: DataLoader, loss_fn: torch.nn.Module,
+               optimizer: torch.optim.Optimizer):
+    model.train()
+    train_loss, train_acc = 0, 0
+    for batch, (X, y) in enumerate(dataloader):
+        X, y = X.to(device), y.to(device)  # send to device
+        y_pred = model(X)  # forward pass
+        loss = loss_fn(y_pred, y)  # calc loss
+        train_loss += loss.item()
+        # train_acc += accuracy_fn(y, y_pred)
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+        y_pred_class = torch.argmax(torch.softmax(y_pred, dim=1), dim=1)
+        train_acc += (y_pred_class == y).sum().item()/len(y_pred)
+        if batch % 10 == 0:
+            print(
+                f"Looked at {batch * len(X)}/{len(dataloader.dataset)} samples")
+    train_loss /= len(dataloader)
+    train_acc /= len(dataloader)
+    print(f"Train loss: {train_loss} | Train acc: {train_acc}%\n")
+    # return train_loss, train_acc
+
+
+def train(epochs: int, train_dataloader: DataLoader, test_dataloader: DataLoader,
+          loss_fn: torch.nn.Module, optimizer: torch.optim.Optimizer, model: torch.nn.Module, device=device):
+    
+    for epoch in tqdm(range(epochs)):
+        train_step(model=model, dataloader=train_dataloader,
+                   loss_fn=loss_fn, optimizer=optimizer)
+        test_step(model=model, dataloader=test_dataloader, loss_fn=loss_fn)
+
+
 if __name__ == "__main__":
-    plot_transformed_images(image_paths=image_path_list,
-                            transform=train_transform, n=5, seed=42)
+    print(train_data)
+    # plot_transformed_images(image_paths=image_path_list,
+    #                         transform=train_transform, n=5, seed=42)
     # display_random_image(dataset=train_data_custom,
     #                      classes=train_data_custom.classes, n=5, seed=None)
-    print("E")
+    torch.manual_seed(42)
+    first_model = TinyVGG(inputShape=3, hiddenNodes=10,
+                          outputShape=len(class_names), imageDim=64).to(device)
+    summary(first_model, input_size=[1, 3, 64, 64])
+    # epoch batch train loop for pytorch model
+    EPOCHS = 100
+    loss_fn = nn.CrossEntropyLoss()
+    optimizer = torch.optim.Adam(first_model.parameters(), lr=0.001)
+    train(model=first_model, loss_fn=loss_fn,
+          optimizer=optimizer, epochs=EPOCHS, train_dataloader= , test_dataloader=)

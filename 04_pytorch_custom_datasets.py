@@ -256,6 +256,10 @@ simple_test_dataloader = DataLoader(
 
 
 class TinyVGG(torch.nn.Module):
+    """
+    TinyVGG model
+    """
+
     def __init__(self, inputShape: int, outputShape: int, imageDim: int,  hiddenNodes: int, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self.conv1 = nn.Sequential(
@@ -287,6 +291,9 @@ class TinyVGG(torch.nn.Module):
 
 
 def test_step(model: torch.nn.Module, dataloader: DataLoader, loss_fn: torch.nn.Module, device=device):
+    """
+    Performs a test step on the given model and dataloader
+    """
     model.eval()
     test_loss, test_acc = 0, 0
     with torch.inference_mode():
@@ -305,6 +312,9 @@ def test_step(model: torch.nn.Module, dataloader: DataLoader, loss_fn: torch.nn.
 
 def train_step(model: torch.nn.Module, dataloader: DataLoader, loss_fn: torch.nn.Module,
                optimizer: torch.optim.Optimizer, device=device):
+    """
+    Train model for one epoch
+    """
     model.train()
     train_loss, train_acc = 0, 0
     for batch, (X, y) in enumerate(dataloader):
@@ -326,6 +336,9 @@ def train_step(model: torch.nn.Module, dataloader: DataLoader, loss_fn: torch.nn
 
 def train(epochs: int, train_dataloader: DataLoader, test_dataloader: DataLoader,
           loss_fn: torch.nn.Module, optimizer: torch.optim.Optimizer, model: torch.nn.Module, device=device):
+    """
+    Train a model for a given number of epochs
+    """
     results = {"train_loss": [],
                "train_acc": [],
                "test_loss": [],
@@ -345,6 +358,9 @@ def train(epochs: int, train_dataloader: DataLoader, test_dataloader: DataLoader
 
 
 def plot_loss_curves(results: Dict[str, List[float]]):
+    """
+    Plots the loss and accuracy curves for the training and test set
+    """
     train_loss = results["train_loss"]
     test_loss = results["test_loss"]
     accuracy = results["train_acc"]
@@ -425,22 +441,46 @@ custom_image_transformed = custom_image_transform(custom_image)
 # def predict_custom_image():
 #     return
 
-def predict_and_plot_custom_image(model: torch.nn.Module, imagePath: str, transform: transforms):
-    custom_image = torchvision.io.read_image(
-        str(imagePath)).type(torch.float32) / 255
-    custom_image_transformed = transform(custom_image)
-    custom_image_transformed = custom_image_transformed.unsqueeze(0)
-    custom_image_transformed = custom_image_transformed.to(device)
-    custom_image_prediction = model(custom_image_transformed)
-    custom_image_prediction = torch.argmax(
-        torch.softmax(custom_image_prediction, dim=1), dim=1)
-    custom_image_prediction = custom_image_prediction.item()
-    custom_image_prediction = class_names[custom_image_prediction]
-    custom_image = custom_image_transformed.squeeze(0)
-    custom_image = custom_image.permute(1, 2, 0)
-    plt.imshow(custom_image.cpu())
-    plt.title(custom_image_prediction)
-    plt.show()
+
+def predict_and_plot_custom_image(model: torch.nn.Module, imagePath: str, transform: transforms = None, device=device, class_names: List[str] = None):
+    """
+    Predicts and plots a custom image using a trained model.
+    """
+    # enable pred mode
+    model.eval()
+    model.to(device=device)
+    # set to device, and enter infrence mode for brrrrrrrr
+    with torch.inference_mode():
+        custom_image = torchvision.io.read_image(
+            str(imagePath)).type(torch.float32) / 255
+        # create image from path
+        if transform:
+            custom_image_transformed = transform(custom_image)
+        # transform image
+        custom_image_transformed = custom_image_transformed.unsqueeze(0)
+        # add batch dim
+        custom_image_transformed = custom_image_transformed.to(device)
+        # set to device
+        custom_image_prediction = model(custom_image_transformed)
+        # forward pass
+        custom_image_prediction = torch.argmax(
+            torch.softmax(custom_image_prediction, dim=1), dim=1)
+        # get the pred class number
+        custom_image_prediction = custom_image_prediction.item()
+        # get the pred class number as an int
+        if class_names:
+            custom_image_prediction = class_names[custom_image_prediction]
+        # get the pred class name
+        custom_image = custom_image_transformed.squeeze(0)
+        # remove batch dim before display
+        custom_image = custom_image.permute(1, 2, 0)
+        # permute to display, width high color
+        plt.imshow(custom_image.cpu())
+        # display image
+        plt.title(custom_image_prediction)
+        # display classification name
+        plt.show()
+        # show plot
 
 
 if __name__ == "__main__":
@@ -457,7 +497,7 @@ if __name__ == "__main__":
                           outputShape=len(class_names), imageDim=224).to(device)
     summary(first_model, input_size=[1, 3, IMAGE_HEIGHT, IMAGE_WIDTH])
     predict_and_plot_custom_image(
-        model=first_model, imagePath=custom_image_path, transform=custom_image_transform)
+        model=first_model, imagePath=custom_image_path, transform=custom_image_transform, class_names=class_names)
     # epoch batch train loop for pytorch model
     EPOCHS = 10
     loss_fn = nn.CrossEntropyLoss()
@@ -468,3 +508,5 @@ if __name__ == "__main__":
     end_time = timer()
     print(f"Training took {end_time-start_time} seconds")
     plot_loss_curves(model_results)
+    predict_and_plot_custom_image(
+        model=first_model, imagePath=custom_image_path, transform=custom_image_transform, class_names=class_names)

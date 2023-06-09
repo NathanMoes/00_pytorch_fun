@@ -388,6 +388,21 @@ train_dataloader_augmented = DataLoader(
 test_dataloader_simple = DataLoader(
     dataset=test_data_simple, batch_size=BATCH_SIZE, shuffle=False, num_workers=CPU_COUNT)
 
+custom_image_path = data_path / "04-pizza-dad.jpeg"
+
+if not custom_image_path.is_file():
+    with open(custom_image_path, "wb") as f:
+        request = requests.get(
+            "https://raw.githubusercontent.com/mrdbourke/pytorch-deep-learning/main/images/04-pizza-dad.jpeg")
+        print(f"Downloading {custom_image_path}...")
+        f.write(request.content)
+else:
+    print(f"{custom_image_path} already downloaded")
+
+# def predict_custom_image():
+#     return
+
+
 if __name__ == "__main__":
     # plot_transformed_images(image_paths=image_path_list,
     #                         transform=train_transform, n=5, seed=42)

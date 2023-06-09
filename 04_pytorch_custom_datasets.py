@@ -425,6 +425,23 @@ custom_image_transformed = custom_image_transform(custom_image)
 # def predict_custom_image():
 #     return
 
+def predict_and_plot_custom_image(model: torch.nn.Module, imagePath: str, transform: transforms):
+    custom_image = torchvision.io.read_image(
+        str(imagePath)).type(torch.float32) / 255
+    custom_image_transformed = transform(custom_image)
+    custom_image_transformed = custom_image_transformed.unsqueeze(0)
+    custom_image_transformed = custom_image_transformed.to(device)
+    custom_image_prediction = model(custom_image_transformed)
+    custom_image_prediction = torch.argmax(
+        torch.softmax(custom_image_prediction, dim=1), dim=1)
+    custom_image_prediction = custom_image_prediction.item()
+    custom_image_prediction = class_names[custom_image_prediction]
+    custom_image = custom_image_transformed.squeeze(0)
+    custom_image = custom_image.permute(1, 2, 0)
+    plt.imshow(custom_image.cpu())
+    plt.title(custom_image_prediction)
+    plt.show()
+
 
 if __name__ == "__main__":
     # plot_transformed_images(image_paths=image_path_list,
@@ -439,15 +456,9 @@ if __name__ == "__main__":
     first_model = TinyVGG(inputShape=3, hiddenNodes=16,
                           outputShape=len(class_names), imageDim=224).to(device)
     summary(first_model, input_size=[1, 3, IMAGE_HEIGHT, IMAGE_WIDTH])
+    predict_and_plot_custom_image(
+        model=first_model, imagePath=custom_image_path, transform=custom_image_transform)
     # epoch batch train loop for pytorch model
-    first_model.eval()
-    with torch.inference_mode():
-        custom_image_pred = first_model(
-            custom_image_transformed.unsqueeze(0).to(device))
-        custom_image_pred_probs = torch.softmax(custom_image_pred, dim=1)
-        class_num = torch.argmax(custom_image_pred_probs, dim=1)
-        print(
-            f"Custom image prediction: {class_names[class_num]} with {custom_image_pred_probs}% chance")
     EPOCHS = 10
     loss_fn = nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(first_model.parameters(), lr=0.001)
@@ -457,12 +468,3 @@ if __name__ == "__main__":
     end_time = timer()
     print(f"Training took {end_time-start_time} seconds")
     plot_loss_curves(model_results)
-    first_model.eval()
-    with torch.inference_mode():
-        custom_image_pred = first_model(
-            custom_image_transformed.unsqueeze(0).to(device))
-        custom_image_pred_probs = torch.softmax(
-            custom_image_pred, dim=1).to("cpu")
-        class_num = torch.argmax(custom_image_pred_probs, dim=1).to("cpu")
-        print(
-            f"Custom image prediction: {class_names[class_num]} with {custom_image_pred_probs}% chance [pizza, steak, sushi]")

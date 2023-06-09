@@ -462,6 +462,7 @@ def predict_and_plot_custom_image(model: torch.nn.Module, imagePath: str, transf
         custom_image_transformed = custom_image_transformed.to(device)
         # set to device
         custom_image_prediction = model(custom_image_transformed)
+        pred_chance = torch.softmax(custom_image_prediction, dim=1).max()
         # forward pass
         custom_image_prediction = torch.argmax(
             torch.softmax(custom_image_prediction, dim=1), dim=1)
@@ -477,7 +478,9 @@ def predict_and_plot_custom_image(model: torch.nn.Module, imagePath: str, transf
         # permute to display, width high color
         plt.imshow(custom_image.cpu())
         # display image
-        plt.title(custom_image_prediction)
+        title = f"{custom_image_prediction} | Prob: {pred_chance}%"
+        plt.title(title)
+        plt.axis(False)
         # display classification name
         plt.show()
         # show plot

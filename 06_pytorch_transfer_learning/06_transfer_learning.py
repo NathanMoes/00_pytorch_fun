@@ -13,6 +13,7 @@ import torchinfo
 import zipfile
 import requests
 from pathlib import Path
+from timeit import default_timer as timer
 
 # Setup path to data folder
 data_path = Path("data/")
@@ -328,10 +329,41 @@ train_dataloader, test_dataloader, class_names = create_dataloaders(
     train_dir=train_dir, test_dir=test_dir, transform=auto_transforms, batch_size=BATCH_SIZE)
 
 
+def plot_loss_curves(results: Dict[str, List[float]]):
+    """
+    Plots the loss and accuracy curves for the training and test set
+    """
+    train_loss = results["train_loss"]
+    test_loss = results["test_loss"]
+    accuracy = results["train_acc"]
+    test_accuracy = results["test_acc"]
+    epochs = range(len(results["train_loss"]))
+    plt.figure(figsize=(15, 7))
+    plt.subplot(1, 2, 1)
+    plt.plot(epochs, train_loss, label="Train loss")
+    plt.plot(epochs, test_loss, label="Test loss")
+    plt.title("Loss vs Epochs")
+    plt.xlabel("Epochs")
+    plt.ylabel("Loss")
+    plt.legend()
+    plt.subplot(1, 2, 2)
+    plt.plot(epochs, accuracy, label="Train accuracy")
+    plt.plot(epochs, test_accuracy, label="Test accuracy")
+    plt.title("Accuracy vs Epochs")
+    plt.xlabel("Epochs")
+    plt.ylabel("Accuracy")
+    plt.legend()
+    plt.show()
+
+
 if __name__ == "__main__":
     # Set random seeds for reproducibility
+    EPOCHS = 5
+    LEARNING_RATE = 0.001
     torch.manual_seed(42)
-    model = torchvision.models.efficientnet_b0(weights=weights)
+    torch.cuda.manual_seed(42)
+    model = torchvision.models.efficientnet_b0(
+        weights=weights).to(device=device)
     torchinfo.summary(model=model,
                       # make sure this is "input_size", not "input_shape"
                       input_size=(1, 3, 224, 224),
@@ -341,4 +373,18 @@ if __name__ == "__main__":
                       col_width=20,
                       row_settings=["var_names"]
                       )
+    for param in model.features.parameters():
+        param.requires_grad = False
+    model.classifier = nn.Sequential(
+        nn.Dropout(p=0.2, inplace=True),
+        nn.Linear(in_features=1280, out_features=len(class_names))
+    ).to(device=device)
+    loss_fn = nn.CrossEntropyLoss()
+    optimizer = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE)
+    start_time = timer()
+    results = train(model=model, train_dataloader=train_dataloader,
+                    test_dataloader=test_dataloader, optimizer=optimizer, loss_fn=loss_fn, epochs=EPOCHS, device=device)
+    end_time = timer()
+    print(f"Time taken: {end_time - start_time:.2f}s")
+    plot_loss_curves(results=results)
     print(f"e")

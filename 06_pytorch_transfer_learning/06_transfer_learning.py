@@ -14,6 +14,8 @@ import zipfile
 import requests
 from pathlib import Path
 from timeit import default_timer as timer
+from PIL import Image
+import random
 
 # Setup path to data folder
 data_path = Path("data/")
@@ -356,9 +358,49 @@ def plot_loss_curves(results: Dict[str, List[float]]):
     plt.show()
 
 
+def pred_and_plot_image(model: torch.nn.Module, class_names: List[str],
+                        image_path: str, transform: torchvision.transforms = None,
+                        image_size: Tuple[int, int] = (224, 224), device: torch.device = device):
+    model.eval()
+    model.to(device=device)
+    ogImage = image = Image.open(image_path)
+    if transform is not None:
+        image = transform(image)
+    else:
+        image = transforms.Compose([
+            transforms.Resize(image_size),
+            transforms.ToTensor(),
+            normalize
+        ])(image)
+    image = image.unsqueeze(0)
+    image = image.to(device=device)
+    with torch.inference_mode():
+        output = model(image)
+        predicted_probs = torch.softmax(output, dim=1)
+        predicted = torch.argmax(predicted_probs, dim=1)
+        plt.figure()
+        plt.imshow(ogImage)
+        plt.title(
+            f"Predicted class: {class_names[predicted]} | probability: {predicted_probs.max():.4f}")
+        plt.axis("off")
+        plt.show()
+
+
+custom_image_path = data_path / "04-pizza-dad.jpeg"
+
+if not custom_image_path.is_file():
+    with open(custom_image_path, "wb") as f:
+        request = requests.get(
+            "https://raw.githubusercontent.com/mrdbourke/pytorch-deep-learning/main/images/04-pizza-dad.jpeg")
+        print(f"Downloading {custom_image_path}...")
+        f.write(request.content)
+else:
+    print(f"{custom_image_path} already downloaded")
+
+
 if __name__ == "__main__":
     # Set random seeds for reproducibility
-    EPOCHS = 5
+    EPOCHS = 20
     LEARNING_RATE = 0.001
     torch.manual_seed(42)
     torch.cuda.manual_seed(42)
@@ -387,4 +429,15 @@ if __name__ == "__main__":
     end_time = timer()
     print(f"Time taken: {end_time - start_time:.2f}s")
     plot_loss_curves(results=results)
+    # get random list of image paths from test set
+    pred_and_plot_image(model=model, class_names=class_names, image_path=custom_image_path,
+                        transform=auto_transforms, image_size=(224, 2224), device=device)
+    num_images = 10
+    image_path_list = list(Path(test_dir).glob("*/*.jpg"))
+    test_image_path_sample = random.sample(
+        population=image_path_list, k=num_images)
+    test_paths = random.sample(test_image_path_sample, k=num_images)
+    for image_path in test_paths:
+        pred_and_plot_image(model=model, class_names=class_names, image_path=image_path,
+                            transform=auto_transforms, image_size=(224, 2224), device=device)
     print(f"e")

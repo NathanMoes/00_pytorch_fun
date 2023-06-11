@@ -17,6 +17,7 @@ from pathlib import Path
 # Setup path to data folder
 data_path = Path("data/")
 image_path = data_path / "pizza_steak_sushi"
+BATCH_SIZE = 32
 
 # If the image folder doesn't exist, download it and prepare it...
 if image_path.is_dir():
@@ -310,12 +311,34 @@ def train(model: torch.nn.Module,
     return results
 
 
+normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                                 std=[0.229, 0.224, 0.225])
+
+manual_transforms = transforms.Compose([
+    transforms.Resize((224, 224)),
+    transforms.ToTensor(),
+    normalize
+])
+
+weights = torchvision.models.EfficientNet_B0_Weights.DEFAULT
+# default is the best avail
+auto_transforms = weights.transforms()
+
 train_dataloader, test_dataloader, class_names = create_dataloaders(
-    train_dir=train_dir, test_dir=test_dir)
+    train_dir=train_dir, test_dir=test_dir, transform=auto_transforms, batch_size=BATCH_SIZE)
 
 
 if __name__ == "__main__":
     # Set random seeds for reproducibility
     torch.manual_seed(42)
-
+    model = torchvision.models.efficientnet_b0(weights=weights)
+    torchinfo.summary(model=model,
+                      # make sure this is "input_size", not "input_shape"
+                      input_size=(1, 3, 224, 224),
+                      # col_names=["input_size"], # uncomment for smaller output
+                      col_names=["input_size", "output_size",
+                                 "num_params", "trainable"],
+                      col_width=20,
+                      row_settings=["var_names"]
+                      )
     print(f"e")

@@ -12,6 +12,7 @@ import torch
 from pathlib import Path
 import torchvision
 from torch import nn
+from datetime import datetime
 from torch.utils.tensorboard import SummaryWriter
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -391,13 +392,31 @@ def create_dataloaders(
 
     return train_dataloader, test_dataloader, class_names
 
+# create a function that creates a SummaryWriter() instance
+
+
+def create_writer(experiment_name: str, model_name: str, extra: str = None):
+    """
+    creates a summary writer instance to specific dir
+    """
+    timestamp = datetime.now().strftime("%Y-%m-%d")
+    if extra:
+        # Create log directory path
+        log_dir = os.path.join(
+            "runs", timestamp, experiment_name, model_name, extra)
+    else:
+        log_dir = os.path.join("runs", timestamp, experiment_name, model_name)
+
+    print(f"[INFO] Created SummaryWriter, saving to: {log_dir}...")
+    return SummaryWriter(log_dir=log_dir)
+
 
 normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
                                  std=[0.229, 0.224, 0.225])
 
 
 BATCH_SIZE = 32
-EPOCHS = 12
+EPOCHS = 5
 
 if __name__ == "__main__":
     image_path = download_data()
@@ -428,7 +447,8 @@ if __name__ == "__main__":
     loss_fn = nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
     # setup summary writer
-    writer = SummaryWriter()
+    writer = create_writer(experiment_name="data_10%",
+                           model_name="effnetb0", extra="5_epochs")
     # train model
     results = train(model=model, train_dataloader=train_dataloader,
                     test_dataloader=test_dataloader, optimizer=optimizer, loss_fn=loss_fn, epochs=EPOCHS, device=device, writer=writer)

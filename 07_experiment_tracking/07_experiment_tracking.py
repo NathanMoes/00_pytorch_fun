@@ -419,7 +419,14 @@ BATCH_SIZE = 32
 EPOCHS = 2
 
 if __name__ == "__main__":
-    image_path = download_data()
+    # Download 10 percent and 20 percent training data (if necessary)
+    data_10_percent_path = download_data(source="https://github.com/mrdbourke/pytorch-deep-learning/raw/main/data/pizza_steak_sushi.zip",
+                                         destination="pizza_steak_sushi")
+
+    data_20_percent_path = download_data(source="https://github.com/mrdbourke/pytorch-deep-learning/raw/main/data/pizza_steak_sushi_20_percent.zip",
+                                         destination="pizza_steak_sushi_20_percent")
+    image_path = data_10_percent_path
+    train_dir_20 = data_20_percent_path / "train"
     test_dir = image_path / "test"
     train_dir = image_path / "train"
     # create transform pipeline manually
@@ -432,8 +439,12 @@ if __name__ == "__main__":
     # create model
     weights = torchvision.models.EfficientNet_B0_Weights.DEFAULT
     auto_transform = weights.transforms()
+    # 10% dataloaders
     train_dataloader, test_dataloader, class_names = create_dataloaders(
         train_dir=train_dir, test_dir=test_dir, transform=auto_transform, num_workers=0, batch_size=BATCH_SIZE)
+    # 20% dataloaders
+    train_20_dataloader, test_dataloader, class_names = create_dataloaders(
+        train_dir=train_dir_20, test_dir=test_dir, transform=auto_transform, num_workers=0, batch_size=BATCH_SIZE)
     # setup model with weights and send to target device
     model = torchvision.models.efficientnet_b0(
         weights=weights).to(device)

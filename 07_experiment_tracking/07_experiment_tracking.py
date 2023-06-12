@@ -415,6 +415,42 @@ normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
                                  std=[0.229, 0.224, 0.225])
 
 
+def create_eff_b2(out_feats: int) -> torch.nn.Module:
+    """
+    create eff_b0 model
+    """
+    model = torchvision.models.efficientnet_b2(
+        torchvision.models.EfficientNet_B2_Weights.DEFAULT)
+    for param in model.features.parameters():
+        param.requires_grad = False
+    set_seeds()
+    model.classifier = nn.Sequential(
+        nn.Dropout(p=0.2),
+        nn.Linear(in_features=1280, out_features=out_feats)
+    ).to(device=device)
+    model.name = "effnetb2"
+    return model
+
+
+def create_eff_b0(out_feats: int) -> torch.nn.Module:
+    """
+    create eff_b0 model
+    """
+    model = torchvision.models.efficientnet_b0(
+        torchvision.models.EfficientNet_B0_Weights.DEFAULT)
+    # freeze feature layers
+    for param in model.features.parameters():
+        param.requires_grad = False
+    set_seeds()
+    # est droppout to learn new output feats
+    model.classifier = nn.Sequential(
+        nn.Dropout(p=0.2),
+        nn.Linear(in_features=1280, out_features=out_feats)
+    ).to(device=device)
+    model.name = "effnetb0"
+    return model
+
+
 BATCH_SIZE = 32
 EPOCHS = 2
 
@@ -446,20 +482,15 @@ if __name__ == "__main__":
     train_20_dataloader, test_dataloader, class_names = create_dataloaders(
         train_dir=train_dir_20, test_dir=test_dir, transform=auto_transform, num_workers=0, batch_size=BATCH_SIZE)
     # setup model with weights and send to target device
-    model = torchvision.models.efficientnet_b0(
-        weights=weights).to(device)
-    for param in model.features.parameters():
-        param.requires_grad = False
-    # change classifier head
-    model.classifier = nn.Sequential(
-        nn.Dropout(p=0.2, inplace=True),
-        nn.Linear(in_features=1280, out_features=len(class_names))
-    ).to(device=device)
+    model = create_eff_b0(len(class_names))
+    model2 = create_eff_b2(len(class_names))
     loss_fn = nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
     # setup summary writer
     writer = create_writer(experiment_name="data_10%",
                            model_name="effnetb0", extra=f"{EPOCHS}_epochs")
+    writer2 = create_writer(experiment_name="data_0%",
+                            model_name="effnetb0", extra=f"{EPOCHS}_epochs")
     # train model
     results = train(model=model, train_dataloader=train_dataloader,
                     test_dataloader=test_dataloader, optimizer=optimizer, loss_fn=loss_fn, epochs=EPOCHS, device=device, writer=writer)

@@ -14,6 +14,14 @@ import torchvision
 from torch import nn
 from datetime import datetime
 from torch.utils.tensorboard import SummaryWriter
+from typing import Dict, List, Tuple
+import matplotlib.pyplot as plt
+import sys
+from torchvision import transforms
+import torchinfo
+from timeit import default_timer as timer
+from PIL import Image
+import random
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
@@ -497,8 +505,8 @@ train_dataloader_10_percent, test_dataloader, class_names = create_dataloaders(
 train_dataloader_20_percent, test_dataloader, class_names = create_dataloaders(
     train_dir=train_dir_20, test_dir=test_dir, transform=manual_transform, num_workers=0, batch_size=BATCH_SIZE)
 
-if __name__ == "__main__":
 
+def run_experiments():
     # 1. Create epochs list
     num_epochs = [5, 10]
 
@@ -563,23 +571,80 @@ if __name__ == "__main__":
                            model_name=save_filepath)
                 print("-"*50 + "\n")
 
-    # # 10% dataloaders
-    # # setup model with weights and send to target device
-    # model = create_effnetb0(len(class_names))
-    # model2 = create_effnetb2(len(class_names))
-    # loss_fn = nn.CrossEntropyLoss()
-    # optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
-    # loss_fn2 = nn.CrossEntropyLoss()
-    # optimizer2 = torch.optim.Adam(model.parameters(), lr=0.001)
-    # # setup summary writer
-    # writer = create_writer(experiment_name="data_20%",
-    #                        model_name="effnetb0", extra=f"{EPOCHS}_epochs")
-    # writer2 = create_writer(experiment_name="data_20%",
-    #                         model_name="effnetb2", extra=f"{EPOCHS}_epochs")
-    # # train model
-    # results = train(model=model, train_dataloader=train_20_dataloader,
-    #                 test_dataloader=test_dataloader, optimizer=optimizer, loss_fn=loss_fn, epochs=EPOCHS, device=device, writer=writer)
-    # print(f"training {model2.name}")
-    # results2 = train(model=model2, train_dataloader=train_20_dataloader,
-    #                  test_dataloader=test_dataloader, optimizer=optimizer2, loss_fn=loss_fn2, epochs=EPOCHS, device=device, writer=writer)
-    # pass
+
+def pred_and_plot_image(model: torch.nn.Module, class_names: List[str],
+                        image_path: str, transform: torchvision.transforms = None,
+                        image_size: Tuple[int, int] = (224, 224), device: torch.device = device):
+    model.eval()
+    model.to(device=device)
+    ogImage = image = Image.open(image_path)
+    if transform is not None:
+        image = transform(image)
+    else:
+        image = transforms.Compose([
+            transforms.Resize(image_size),
+            transforms.ToTensor(),
+            normalize
+        ])(image)
+    image = image.unsqueeze(0)
+    image = image.to(device=device)
+    with torch.inference_mode():
+        output = model(image)
+        predicted_probs = torch.softmax(output, dim=1)
+        predicted = torch.argmax(predicted_probs, dim=1)
+        plt.figure()
+        plt.imshow(ogImage)
+        plt.title(
+            f"Predicted class: {class_names[predicted]} | probability: {predicted_probs.max():.4f}")
+        plt.axis("off")
+        plt.show()
+
+
+if __name__ == "__main__":
+    # Setup the best model filepath
+    best_model_path = "models/07_effnetb2_data_20_percent_10_epochs.pth"
+
+    # Instantiate a new instance of EffNetB2 (to load the saved state_dict() to)
+    best_model = create_effnetb2(len(class_names))
+
+    # Load the saved best model state_dict()
+    best_model.load_state_dict(torch.load(best_model_path))
+    effnetb2_model_size = Path(best_model_path).stat().st_size // (1024*1024)
+    print(
+        f"EfficientNetB2 feature extractor model size: {effnetb2_model_size} MB")
+    import random
+    num_images_to_plot = 10
+    # get all test image paths from 20% dataset
+    test_image_path_list = list(
+        Path(data_20_percent_path / "test").glob("*/*.jpg"))
+    test_image_path_sample = random.sample(population=test_image_path_list,
+                                           k=num_images_to_plot)  # randomly select k number of images
+
+    # Iterate through random test image paths, make predictions on them and plot them
+    for image_path in test_image_path_sample:
+        pred_and_plot_image(model=best_model,
+                            image_path=image_path,
+                            class_names=class_names,
+                            image_size=(224, 224))
+
+    # Download custom image
+
+    # Setup custom image path
+    custom_image_path = Path("data/04-pizza-dad.jpeg")
+
+    # Download the image if it doesn't already exist
+    if not custom_image_path.is_file():
+        with open(custom_image_path, "wb") as f:
+            # When downloading from GitHub, need to use the "raw" file link
+            request = requests.get(
+                "https://raw.githubusercontent.com/mrdbourke/pytorch-deep-learning/main/images/04-pizza-dad.jpeg")
+            print(f"Downloading {custom_image_path}...")
+            f.write(request.content)
+    else:
+        print(f"{custom_image_path} already exists, skipping download.")
+
+    # Predict on custom image
+    pred_and_plot_image(model=best_model,
+                        image_path=custom_image_path,
+                        class_names=class_names)
+    pass

@@ -416,7 +416,7 @@ normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
 
 
 BATCH_SIZE = 32
-EPOCHS = 5
+EPOCHS = 2
 
 if __name__ == "__main__":
     image_path = download_data()
@@ -448,7 +448,7 @@ if __name__ == "__main__":
     optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
     # setup summary writer
     writer = create_writer(experiment_name="data_10%",
-                           model_name="effnetb0", extra="5_epochs")
+                           model_name="effnetb0", extra=f"{EPOCHS}_epochs")
     # train model
     results = train(model=model, train_dataloader=train_dataloader,
                     test_dataloader=test_dataloader, optimizer=optimizer, loss_fn=loss_fn, epochs=EPOCHS, device=device, writer=writer)

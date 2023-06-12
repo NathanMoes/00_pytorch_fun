@@ -242,7 +242,7 @@ def train(model: torch.nn.Module,
           loss_fn: torch.nn.Module,
           epochs: int,
           device: torch.device,
-          writer: SummaryWriter
+          writer: SummaryWriter = None
           ) -> Dict[str, List]:
     """Trains and tests a PyTorch model.
 
@@ -309,14 +309,15 @@ def train(model: torch.nn.Module,
         results["test_loss"].append(test_loss)
         results["test_acc"].append(test_acc)
         # experiment tracking
-        writer.add_scalars(main_tag="Loss", tag_scalar_dict={
-                           "train_loss": train_loss,
-                           "test_loss": test_loss}, global_step=epoch)
-        writer.add_scalars(main_tag="Accuracy", tag_scalar_dict={
-                           "train_acc": train_acc, "train_acc": test_acc}, global_step=epoch)
-        writer.add_graph(model=model,
-                         input_to_model=torch.randn(BATCH_SIZE, 3, 224, 224).to(device))
-        writer.close()
+        if writer is not None:
+            writer.add_scalars(main_tag="Loss", tag_scalar_dict={
+                "train_loss": train_loss,
+                "test_loss": test_loss}, global_step=epoch)
+            writer.add_scalars(main_tag="Accuracy", tag_scalar_dict={
+                "train_acc": train_acc, "train_acc": test_acc}, global_step=epoch)
+            writer.add_graph(model=model,
+                             input_to_model=torch.randn(BATCH_SIZE, 3, 224, 224).to(device))
+            writer.close()
 
     # Return the filled results at the end of the epochs
     return results
@@ -396,7 +397,7 @@ normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
 
 
 BATCH_SIZE = 32
-EPOCHS = 5
+EPOCHS = 12
 
 if __name__ == "__main__":
     image_path = download_data()
@@ -409,11 +410,11 @@ if __name__ == "__main__":
         normalize,
     ])
     # get train and test dataloader from function
-    train_dataloader, test_dataloader, class_names = create_dataloaders(
-        train_dir=train_dir, test_dir=test_dir, transform=manual_transform, num_workers=0, batch_size=BATCH_SIZE)
     # create model
     weights = torchvision.models.EfficientNet_B0_Weights.DEFAULT
     auto_transform = weights.transforms()
+    train_dataloader, test_dataloader, class_names = create_dataloaders(
+        train_dir=train_dir, test_dir=test_dir, transform=auto_transform, num_workers=0, batch_size=BATCH_SIZE)
     # setup model with weights and send to target device
     model = torchvision.models.efficientnet_b0(
         weights=weights).to(device)

@@ -417,7 +417,7 @@ normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
 
 def create_eff_b2(out_feats: int) -> torch.nn.Module:
     """
-    create eff_b0 model
+    create eff_b2 model
     """
     model = torchvision.models.efficientnet_b2(
         torchvision.models.EfficientNet_B2_Weights.DEFAULT)
@@ -426,7 +426,7 @@ def create_eff_b2(out_feats: int) -> torch.nn.Module:
     set_seeds()
     model.classifier = nn.Sequential(
         nn.Dropout(p=0.2),
-        nn.Linear(in_features=1280, out_features=out_feats)
+        nn.Linear(in_features=1408, out_features=out_feats)
     ).to(device=device)
     model.name = "effnetb2"
     return model

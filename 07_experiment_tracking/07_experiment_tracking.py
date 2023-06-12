@@ -415,83 +415,171 @@ normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
                                  std=[0.229, 0.224, 0.225])
 
 
-def create_eff_b2(out_feats: int) -> torch.nn.Module:
-    """
-    create eff_b2 model
-    """
-    model = torchvision.models.efficientnet_b2(
-        torchvision.models.EfficientNet_B2_Weights.DEFAULT)
-    for param in model.features.parameters():
-        param.requires_grad = False
-    set_seeds()
-    model.classifier = nn.Sequential(
-        nn.Dropout(p=0.2),
-        nn.Linear(in_features=1408, out_features=out_feats)
-    ).to(device=device)
-    model.name = "effnetb2"
-    return model
+# Get num out features (one for each class pizza, steak, sushi)
 
 
-def create_eff_b0(out_feats: int) -> torch.nn.Module:
-    """
-    create eff_b0 model
-    """
-    model = torchvision.models.efficientnet_b0(
-        torchvision.models.EfficientNet_B0_Weights.DEFAULT)
-    # freeze feature layers
+# Create an EffNetB0 feature extractor
+
+
+def create_effnetb0(out_feats):
+    # 1. Get the base mdoel with pretrained weights and send to target device
+    weights = torchvision.models.EfficientNet_B0_Weights.DEFAULT
+    model = torchvision.models.efficientnet_b0(weights=weights).to(device)
+
+    # 2. Freeze the base model layers
     for param in model.features.parameters():
         param.requires_grad = False
+
+    # 3. Set the seeds
     set_seeds()
-    # est droppout to learn new output feats
+
+    # 4. Change the classifier head
     model.classifier = nn.Sequential(
         nn.Dropout(p=0.2),
         nn.Linear(in_features=1280, out_features=out_feats)
-    ).to(device=device)
+    ).to(device)
+
+    # 5. Give the model a name
     model.name = "effnetb0"
+    print(f"[INFO] Created new {model.name} model.")
+    return model
+
+# Create an EffNetB2 feature extractor
+
+
+def create_effnetb2(out_feats):
+    # 1. Get the base model with pretrained weights and send to target device
+    weights = torchvision.models.EfficientNet_B2_Weights.DEFAULT
+    model = torchvision.models.efficientnet_b2(weights=weights).to(device)
+
+    # 2. Freeze the base model layers
+    for param in model.features.parameters():
+        param.requires_grad = False
+
+    # 3. Set the seeds
+    set_seeds()
+
+    # 4. Change the classifier head
+    model.classifier = nn.Sequential(
+        nn.Dropout(p=0.3),
+        nn.Linear(in_features=1408, out_features=out_feats)
+    ).to(device)
+
+    # 5. Give the model a name
+    model.name = "effnetb2"
+    print(f"[INFO] Created new {model.name} model.")
     return model
 
 
+data_10_percent_path = download_data(
+    source="https://github.com/mrdbourke/pytorch-deep-learning/raw/main/data/pizza_steak_sushi.zip", destination="pizza_steak_sushi")
+data_20_percent_path = download_data(
+    source="https://github.com/mrdbourke/pytorch-deep-learning/raw/main/data/pizza_steak_sushi_20_percent.zip", destination="pizza_steak_sushi_20_percent")
+image_path = data_10_percent_path
+train_dir_20 = data_20_percent_path / "train"
+test_dir = image_path / "test"
+train_dir = image_path / "train"
+
+manual_transform = transforms.Compose([
+    transforms.Resize(size=(224, 224)),
+    transforms.ToTensor(),
+    normalize,
+])
+
+
 BATCH_SIZE = 32
-EPOCHS = 2
+EPOCHS = 5
+
+# 10% data
+train_dataloader_10_percent, test_dataloader, class_names = create_dataloaders(
+    train_dir=train_dir, test_dir=test_dir, transform=manual_transform, num_workers=0, batch_size=BATCH_SIZE)
+# 20% dataloaders
+train_dataloader_20_percent, test_dataloader, class_names = create_dataloaders(
+    train_dir=train_dir_20, test_dir=test_dir, transform=manual_transform, num_workers=0, batch_size=BATCH_SIZE)
 
 if __name__ == "__main__":
-    # Download 10 percent and 20 percent training data (if necessary)
-    data_10_percent_path = download_data(source="https://github.com/mrdbourke/pytorch-deep-learning/raw/main/data/pizza_steak_sushi.zip",
-                                         destination="pizza_steak_sushi")
 
-    data_20_percent_path = download_data(source="https://github.com/mrdbourke/pytorch-deep-learning/raw/main/data/pizza_steak_sushi_20_percent.zip",
-                                         destination="pizza_steak_sushi_20_percent")
-    image_path = data_10_percent_path
-    train_dir_20 = data_20_percent_path / "train"
-    test_dir = image_path / "test"
-    train_dir = image_path / "train"
-    # create transform pipeline manually
-    manual_transform = transforms.Compose([
-        transforms.Resize(size=(224, 224)),
-        transforms.ToTensor(),
-        normalize,
-    ])
-    # get train and test dataloader from function
-    # create model
-    weights = torchvision.models.EfficientNet_B0_Weights.DEFAULT
-    auto_transform = weights.transforms()
-    # 10% dataloaders
-    train_dataloader, test_dataloader, class_names = create_dataloaders(
-        train_dir=train_dir, test_dir=test_dir, transform=auto_transform, num_workers=0, batch_size=BATCH_SIZE)
-    # 20% dataloaders
-    train_20_dataloader, test_dataloader, class_names = create_dataloaders(
-        train_dir=train_dir_20, test_dir=test_dir, transform=auto_transform, num_workers=0, batch_size=BATCH_SIZE)
-    # setup model with weights and send to target device
-    model = create_eff_b0(len(class_names))
-    model2 = create_eff_b2(len(class_names))
-    loss_fn = nn.CrossEntropyLoss()
-    optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
-    # setup summary writer
-    writer = create_writer(experiment_name="data_10%",
-                           model_name="effnetb0", extra=f"{EPOCHS}_epochs")
-    writer2 = create_writer(experiment_name="data_0%",
-                            model_name="effnetb0", extra=f"{EPOCHS}_epochs")
-    # train model
-    results = train(model=model, train_dataloader=train_dataloader,
-                    test_dataloader=test_dataloader, optimizer=optimizer, loss_fn=loss_fn, epochs=EPOCHS, device=device, writer=writer)
-    pass
+    # 1. Create epochs list
+    num_epochs = [5, 10]
+
+    # 2. Create models list (need to create a new model for each experiment)
+    models = ["effnetb0", "effnetb2"]
+
+    # 3. Create dataloaders dictionary for various dataloaders
+    train_dataloaders = {"data_10_percent": train_dataloader_10_percent,
+                         "data_20_percent": train_dataloader_20_percent}
+
+    # 1. Set the random seeds
+    set_seeds(seed=42)
+
+    # 2. Keep track of experiment numbers
+    experiment_number = 0
+
+    # 3. Loop through each DataLoader
+    for dataloader_name, train_dataloader in train_dataloaders.items():
+
+        # 4. Loop through each number of epochs
+        for epochs in num_epochs:
+
+            # 5. Loop through each model name and create a new model based on the name
+            for model_name in models:
+
+                # 6. Create information print outs
+                experiment_number += 1
+                print(f"[INFO] Experiment number: {experiment_number}")
+                print(f"[INFO] Model: {model_name}")
+                print(f"[INFO] DataLoader: {dataloader_name}")
+                print(f"[INFO] Number of epochs: {epochs}")
+
+                # 7. Select the model
+                if model_name == "effnetb0":
+                    # creates a new model each time (important because we want each experiment to start from scratch)
+                    model = create_effnetb0(len(class_names))
+                else:
+                    # creates a new model each time (important because we want each experiment to start from scratch)
+                    model = create_effnetb2(len(class_names))
+
+                # 8. Create a new loss and optimizer for every model
+                loss_fn = nn.CrossEntropyLoss()
+                optimizer = torch.optim.Adam(
+                    params=model.parameters(), lr=0.001)
+
+                # 9. Train target model with target dataloaders and track experiments
+                train(model=model,
+                      train_dataloader=train_dataloader,
+                      test_dataloader=test_dataloader,
+                      optimizer=optimizer,
+                      loss_fn=loss_fn,
+                      epochs=epochs,
+                      device=device,
+                      writer=create_writer(experiment_name=dataloader_name,
+                                           model_name=model_name,
+                                           extra=f"{epochs}_epochs"))
+
+                # 10. Save the model to file so we can get back the best model
+                save_filepath = f"07_{model_name}_{dataloader_name}_{epochs}_epochs.pth"
+                save_model(model=model,
+                           target_dir="models",
+                           model_name=save_filepath)
+                print("-"*50 + "\n")
+
+    # # 10% dataloaders
+    # # setup model with weights and send to target device
+    # model = create_effnetb0(len(class_names))
+    # model2 = create_effnetb2(len(class_names))
+    # loss_fn = nn.CrossEntropyLoss()
+    # optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
+    # loss_fn2 = nn.CrossEntropyLoss()
+    # optimizer2 = torch.optim.Adam(model.parameters(), lr=0.001)
+    # # setup summary writer
+    # writer = create_writer(experiment_name="data_20%",
+    #                        model_name="effnetb0", extra=f"{EPOCHS}_epochs")
+    # writer2 = create_writer(experiment_name="data_20%",
+    #                         model_name="effnetb2", extra=f"{EPOCHS}_epochs")
+    # # train model
+    # results = train(model=model, train_dataloader=train_20_dataloader,
+    #                 test_dataloader=test_dataloader, optimizer=optimizer, loss_fn=loss_fn, epochs=EPOCHS, device=device, writer=writer)
+    # print(f"training {model2.name}")
+    # results2 = train(model=model2, train_dataloader=train_20_dataloader,
+    #                  test_dataloader=test_dataloader, optimizer=optimizer2, loss_fn=loss_fn2, epochs=EPOCHS, device=device, writer=writer)
+    # pass

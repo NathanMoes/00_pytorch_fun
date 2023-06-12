@@ -11,6 +11,8 @@ from tqdm.auto import tqdm
 import torch
 from pathlib import Path
 import torchvision
+from torch import nn
+from torch.utils.tensorboard import SummaryWriter
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
@@ -239,7 +241,9 @@ def train(model: torch.nn.Module,
           optimizer: torch.optim.Optimizer,
           loss_fn: torch.nn.Module,
           epochs: int,
-          device: torch.device) -> Dict[str, List]:
+          device: torch.device,
+          writer: SummaryWriter
+          ) -> Dict[str, List]:
     """Trains and tests a PyTorch model.
 
     Passes a target PyTorch models through train_step() and test_step()
@@ -304,6 +308,15 @@ def train(model: torch.nn.Module,
         results["train_acc"].append(train_acc)
         results["test_loss"].append(test_loss)
         results["test_acc"].append(test_acc)
+        # experiment tracking
+        writer.add_scalars(main_tag="Loss", tag_scalar_dict={
+                           "train_loss": train_loss,
+                           "test_loss": test_loss}, global_step=epoch)
+        writer.add_scalars(main_tag="Accuracy", tag_scalar_dict={
+                           "train_acc": train_acc, "train_acc": test_acc}, global_step=epoch)
+        writer.add_graph(model=model,
+                         input_to_model=torch.randn(BATCH_SIZE, 3, 224, 224).to(device))
+        writer.close()
 
     # Return the filled results at the end of the epochs
     return results
@@ -383,6 +396,7 @@ normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
 
 
 BATCH_SIZE = 32
+EPOCHS = 5
 
 if __name__ == "__main__":
     image_path = download_data()
@@ -400,4 +414,21 @@ if __name__ == "__main__":
     # create model
     weights = torchvision.models.EfficientNet_B0_Weights.DEFAULT
     auto_transform = weights.transforms()
+    # setup model with weights and send to target device
+    model = torchvision.models.efficientnet_b0(
+        weights=weights).to(device)
+    for param in model.features.parameters():
+        param.requires_grad = False
+    # change classifier head
+    model.classifier = nn.Sequential(
+        nn.Dropout(p=0.2, inplace=True),
+        nn.Linear(in_features=1280, out_features=len(class_names))
+    ).to(device=device)
+    loss_fn = nn.CrossEntropyLoss()
+    optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
+    # setup summary writer
+    writer = SummaryWriter()
+    # train model
+    results = train(model=model, train_dataloader=train_dataloader,
+                    test_dataloader=test_dataloader, optimizer=optimizer, loss_fn=loss_fn, epochs=EPOCHS, device=device, writer=writer)
     pass

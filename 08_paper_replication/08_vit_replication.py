@@ -456,5 +456,17 @@ def pred_and_plot_image(model: torch.nn.Module, class_names: List[str],
         plt.show()
 
 
+# Download pizza, steak, sushi images from GitHub
+image_path = download_data(source="https://github.com/mrdbourke/pytorch-deep-learning/raw/main/data/pizza_steak_sushi.zip",
+                           destination="pizza_steak_sushi")
+
+
 if __name__ == "__main__":
+    IMAGE_SIZE = 224
+    # Setup directory paths to train and test images
+    train_dir = image_path / "train"
+    test_dir = image_path / "test"
+    # load in train, test dataloaders and class_names from create dataloaders
+    train_dataloader, test_dataloader, class_names = create_dataloaders(
+        train_dir=train_dir, test_dir=test_dir, transform=None, batch_size=BATCH_SIZE, num_workers=0)
     pass

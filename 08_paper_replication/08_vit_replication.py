@@ -479,6 +479,21 @@ plt.axis(False)
 plt.show()
 
 
-if __name__ == "__main__":
+height = 224
+width = 224
+color_channels = 3
+patch_size = 16
+num_patches = int((height * width) / patch_size**2)
+embedding_layer_input_shape = (height, width, color_channels)
+embedding_layer_output_shape = (num_patches, patch_size**2 * color_channels)
 
+# equation 1L split data into patches
+# equation 2L apply convolutional layer to each patch
+# equation 3L apply max pooling to each patch
+# equation 4L concatenate all patches together
+# equation 5L apply fully connected layer to concatenated patches
+# equation 6L make prediction
+
+
+if __name__ == "__main__":
     pass

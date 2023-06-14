@@ -456,6 +456,39 @@ def pred_and_plot_image(model: torch.nn.Module, class_names: List[str],
         plt.show()
 
 
+def visualize():
+    # Change image shape to be compatible with matplotlib (color_channels, height, width) -> (height, width, color_channels)
+    image_permuted = image.permute(1, 2, 0)
+
+    # Index to plot the top row of patched pixels
+    patch_size = 16
+    plt.figure(figsize=(patch_size, patch_size))
+    plt.imshow(image_permuted[:patch_size, :, :])
+    # Setup hyperparameters and make sure img_size and patch_size are compatible
+    img_size = 224
+    patch_size = 16
+    num_patches = img_size/patch_size
+    assert img_size % patch_size == 0, "Image size must be divisible by patch size"
+    print(
+        f"Number of patches per row: {num_patches}\nPatch size: {patch_size} pixels x {patch_size} pixels")
+
+    # Create a series of subplots
+    fig, axs = plt.subplots(nrows=1,
+                            ncols=img_size // patch_size,  # one column for each patch
+                            figsize=(num_patches, num_patches),
+                            sharex=True,
+                            sharey=True)
+
+    # Iterate through number of patches in the top row
+    for i, patch in enumerate(range(0, img_size, patch_size)):
+        # keep height index constant, alter the width index
+        axs[i].imshow(image_permuted[:patch_size, patch:patch+patch_size, :])
+        axs[i].set_xlabel(i+1)  # set the label
+        axs[i].set_xticks([])
+        axs[i].set_yticks([])
+    plt.show()
+
+
 # Download pizza, steak, sushi images from GitHub
 image_path = download_data(source="https://github.com/mrdbourke/pytorch-deep-learning/raw/main/data/pizza_steak_sushi.zip",
                            destination="pizza_steak_sushi")

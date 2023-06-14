@@ -617,6 +617,114 @@ class PatchEmbedding(nn.Module):
         # adjust so the embedding is on the final dimension [batch_size, P^2•C, N] -> [batch_size, N, P^2•C]
         return x_flattened.permute(0, 2, 1)
 
+
+set_seeds()
+
+# Create an instance of patch embedding layer
+patchify = PatchEmbedding(in_channels=3,
+                          patch_size=16,
+                          embedding_dim=768)
+
+# Pass a single image through
+print(f"Input image shape: {image.unsqueeze(0).shape}")
+# add an extra batch dimension on the 0th index, otherwise will error
+patch_embedded_image = patchify(image.unsqueeze(0))
+print(f"Output patch embedding shape: {patch_embedded_image.shape}")
+
+
+# create class token embedding
+# Get the batch size and embedding dimension
+batch_size = patch_embedded_image.shape[0]
+embedding_dimension = patch_embedded_image.shape[-1]
+
+# Create the class token embedding as a learnable parameter that shares the same size as the embedding dimension (D)
+class_token = nn.Parameter(torch.ones(batch_size, 1, embedding_dimension),  # [batch_size, number_of_tokens, embedding_dimension]
+                           requires_grad=True)  # make sure the embedding is learnable
+
+# Show the first 10 examples of the class_token
+print(class_token[:, :, :10])
+
+# Print the class_token shape
+print(
+    f"Class token shape: {class_token.shape} -> [batch_size, number_of_tokens, embedding_dimension]")
+
+# Add the class token embedding to the front of the patch embedding
+patch_embedded_image_with_class_embedding = torch.cat((class_token, patch_embedded_image),
+                                                      dim=1)  # concat on first dimension
+
+# Print the sequence of patch embeddings with the prepended class token embedding
+print(patch_embedded_image_with_class_embedding)
+print(
+    f"Sequence of patch embeddings with class token prepended shape: {patch_embedded_image_with_class_embedding.shape} -> [batch_size, number_of_patches, embedding_dimension]")
+
+# Calculate N (number of patches)
+number_of_patches = int((height * width) / patch_size**2)
+
+# Get embedding dimension
+embedding_dimension = patch_embedded_image_with_class_embedding.shape[2]
+
+# Create the learnable 1D position embedding
+position_embedding = nn.Parameter(torch.ones(1,
+                                             number_of_patches+1,
+                                             embedding_dimension),
+                                  requires_grad=True)  # make sure it's learnable
+
+# Show the first 10 sequences and 10 position embedding values and check the shape of the position embedding
+print(position_embedding[:, :10, :10])
+print(
+    f"Position embeddding shape: {position_embedding.shape} -> [batch_size, number_of_patches, embedding_dimension]")
+
+# Add the position embedding to the patch and class token embedding
+patch_and_position_embedding = patch_embedded_image_with_class_embedding + \
+    position_embedding
+print(patch_and_position_embedding)
+print(
+    f"Patch embeddings, class token prepended and positional embeddings added shape: {patch_and_position_embedding.shape} -> [batch_size, number_of_patches, embedding_dimension]")
+
+set_seeds()
+
+# 1. Set patch size
+patch_size = 16
+
+# 2. Print shape of original image tensor and get the image dimensions
+print(f"Image tensor shape: {image.shape}")
+height, width = image.shape[1], image.shape[2]
+
+# 3. Get image tensor and add batch dimension
+x = image.unsqueeze(0)
+print(f"Input image with batch dimension shape: {x.shape}")
+
+# 4. Create patch embedding layer
+patch_embedding_layer = PatchEmbedding(in_channels=3,
+                                       patch_size=patch_size,
+                                       embedding_dim=768)
+
+# 5. Pass image through patch embedding layer
+patch_embedding = patch_embedding_layer(x)
+print(f"Patching embedding shape: {patch_embedding.shape}")
+
+# 6. Create class token embedding
+batch_size = patch_embedding.shape[0]
+embedding_dimension = patch_embedding.shape[-1]
+class_token = nn.Parameter(torch.ones(batch_size, 1, embedding_dimension),
+                           requires_grad=True)  # make sure it's learnable
+print(f"Class token embedding shape: {class_token.shape}")
+
+# 7. Prepend class token embedding to patch embedding
+patch_embedding_class_token = torch.cat((class_token, patch_embedding), dim=1)
+print(
+    f"Patch embedding with class token shape: {patch_embedding_class_token.shape}")
+
+# 8. Create position embedding
+number_of_patches = int((height * width) / patch_size**2)
+position_embedding = nn.Parameter(torch.ones(1, number_of_patches+1, embedding_dimension),
+                                  requires_grad=True)  # make sure it's learnable
+
+# 9. Add position embedding to patch embedding with class token
+patch_and_position_embedding = patch_embedding_class_token + position_embedding
+print(
+    f"Patch and position embedding shape: {patch_and_position_embedding.shape}")
+
 # equation 1L split data into patches
 # equation 2L apply convolutional layer to each patch
 # equation 3L apply max pooling to each patch
@@ -626,5 +734,5 @@ class PatchEmbedding(nn.Module):
 
 
 if __name__ == "__main__":
-    visualize()
+    # visualize()
     pass

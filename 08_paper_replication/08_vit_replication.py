@@ -52,6 +52,33 @@ def set_seeds(seed: int = 42):
 set_seeds()
 
 
+def plot_loss_curves(results: Dict[str, List[float]]):
+    """
+    Plots the loss and accuracy curves for the training and test set
+    """
+    train_loss = results["train_loss"]
+    test_loss = results["test_loss"]
+    accuracy = results["train_acc"]
+    test_accuracy = results["test_acc"]
+    epochs = range(len(results["train_loss"]))
+    plt.figure(figsize=(15, 7))
+    plt.subplot(1, 2, 1)
+    plt.plot(epochs, train_loss, label="Train loss")
+    plt.plot(epochs, test_loss, label="Test loss")
+    plt.title("Loss vs Epochs")
+    plt.xlabel("Epochs")
+    plt.ylabel("Loss")
+    plt.legend()
+    plt.subplot(1, 2, 2)
+    plt.plot(epochs, accuracy, label="Train accuracy")
+    plt.plot(epochs, test_accuracy, label="Test accuracy")
+    plt.title("Accuracy vs Epochs")
+    plt.xlabel("Epochs")
+    plt.ylabel("Accuracy")
+    plt.legend()
+    plt.show()
+
+
 def download_data(source: str = "https://github.com/mrdbourke/pytorch-deep-learning/raw/main/data/pizza_steak_sushi.zip",
                   destination: str = "pizza_steak_sushi",
                   remove_source: bool = True) -> Path:
@@ -858,6 +885,104 @@ transformer_encoder_block = TransformerEncoderBlock()
 #         col_names=["input_size", "output_size", "num_params", "trainable"],
 #         col_width=20,
 #         row_settings=["var_names"])
+# 1. Create a ViT class that inherits from nn.Module
+
+
+class ViT(nn.Module):
+    """Creates a Vision Transformer architecture with ViT-Base hyperparameters by default."""
+    # 2. Initialize the class with hyperparameters from Table 1 and Table 3
+
+    def __init__(self,
+                 img_size: int = 224,  # Training resolution from Table 3 in ViT paper
+                 in_channels: int = 3,  # Number of channels in input image
+                 patch_size: int = 16,  # Patch size
+                 num_transformer_layers: int = 12,  # Layers from Table 1 for ViT-Base
+                 embedding_dim: int = 768,  # Hidden size D from Table 1 for ViT-Base
+                 mlp_size: int = 3072,  # MLP size from Table 1 for ViT-Base
+                 num_heads: int = 12,  # Heads from Table 1 for ViT-Base
+                 attn_dropout: float = 0,  # Dropout for attention projection
+                 mlp_dropout: float = 0.1,  # Dropout for dense/MLP layers
+                 embedding_dropout: float = 0.1,  # Dropout for patch and position embeddings
+                 num_classes: int = 1000):  # Default for ImageNet but can customize this
+        super().__init__()  # don't forget the super().__init__()!
+
+        # 3. Make the image size is divisble by the patch size
+        assert img_size % patch_size == 0, f"Image size must be divisible by patch size, image size: {img_size}, patch size: {patch_size}."
+
+        # 4. Calculate number of patches (height * width/patch^2)
+        self.num_patches = (img_size * img_size) // patch_size**2
+
+        # 5. Create learnable class embedding (needs to go at front of sequence of patch embeddings)
+        self.class_embedding = nn.Parameter(data=torch.randn(1, 1, embedding_dim),
+                                            requires_grad=True)
+
+        # 6. Create learnable position embedding
+        self.position_embedding = nn.Parameter(data=torch.randn(1, self.num_patches+1, embedding_dim),
+                                               requires_grad=True)
+
+        # 7. Create embedding dropout value
+        self.embedding_dropout = nn.Dropout(p=embedding_dropout)
+
+        # 8. Create patch embedding layer
+        self.patch_embedding = PatchEmbedding(in_channels=in_channels,
+                                              patch_size=patch_size,
+                                              embedding_dim=embedding_dim)
+
+        # 9. Create Transformer Encoder blocks (we can stack Transformer Encoder blocks using nn.Sequential())
+        # Note: The "*" means "all"
+        self.transformer_encoder = nn.Sequential(*[TransformerEncoderBlock(embedding_dim=embedding_dim,
+                                                                           num_heads=num_heads,
+                                                                           mlp_size=mlp_size,
+                                                                           mlp_dropout=mlp_dropout) for _ in range(num_transformer_layers)])
+
+        # 10. Create classifier head
+        self.classifier = nn.Sequential(
+            nn.LayerNorm(normalized_shape=embedding_dim),
+            nn.Linear(in_features=embedding_dim,
+                      out_features=num_classes)
+        )
+
+    # 11. Create a forward() method
+    def forward(self, x):
+
+        # 12. Get batch size
+        batch_size = x.shape[0]
+
+        # 13. Create class token embedding and expand it to match the batch size (equation 1)
+        # "-1" means to infer the dimension (try this line on its own)
+        class_token = self.class_embedding.expand(batch_size, -1, -1)
+
+        # 14. Create patch embedding (equation 1)
+        x = self.patch_embedding(x)
+
+        # 15. Concat class embedding and patch embedding (equation 1)
+        x = torch.cat((class_token, x), dim=1)
+
+        # 16. Add position embedding to patch embedding (equation 1)
+        x = self.position_embedding + x
+
+        # 17. Run embedding dropout (Appendix B.1)
+        x = self.embedding_dropout(x)
+
+        # 18. Pass patch, position and class embedding through transformer encoder layers (equations 2 & 3)
+        x = self.transformer_encoder(x)
+
+        # 19. Put 0 index logit through classifier (equation 4)
+        # run on each sample in a batch at 0 index
+        x = self.classifier(x[:, 0])
+
+        return x
+
+
+# Create the same as above with torch.nn.TransformerEncoderLayer()
+torch_transformer_encoder_layer = nn.TransformerEncoderLayer(d_model=768,  # Hidden size D from Table 1 for ViT-Base
+                                                             nhead=12,  # Heads from Table 1 for ViT-Base
+                                                             dim_feedforward=3072,  # MLP size from Table 1 for ViT-Base
+                                                             dropout=0.1,  # Amount of dropout for dense layers from Table 3 for ViT-Base
+                                                             activation="gelu",  # GELU non-linear activation
+                                                             batch_first=True,  # Do our batches come first?
+                                                             norm_first=True)  # Normalize first or after MSA/MLP layers?
+
 
 # equation 1L split data into patches
 # equation 2L apply convocational layer to each patch
@@ -869,4 +994,110 @@ transformer_encoder_block = TransformerEncoderBlock()
 
 if __name__ == "__main__":
     # visualize()
+    vit = ViT(num_classes=len(class_names)).to(device=device)
+    from torchinfo import summary
+
+    # Print a summary of our custom ViT model using torchinfo (uncomment for actual output)
+    summary(model=vit,
+            # (batch_size, color_channels, height, width)
+            input_size=(32, 3, 224, 224),
+            # col_names=["input_size"], # uncomment for smaller output
+            col_names=["input_size", "output_size", "num_params", "trainable"],
+            col_width=20,
+            row_settings=["var_names"]
+            )
+    set_seeds()
+
+    # # Create a random tensor with same shape as a single image
+    # # (batch_size, color_channels, height, width)
+    # random_image_tensor = torch.randn(1, 3, 224, 224)
+
+    # # Create an instance of ViT with the number of classes we're working with (pizza, steak, sushi)
+
+    # # Pass the random image tensor to our ViT instance
+    # vit(random_image_tensor)
+    # Setup the optimizer to optimize our ViT model parameters using hyperparameters from the ViT paper
+    optimizer = torch.optim.Adam(params=vit.parameters(),
+                                 lr=3e-3,  # Base LR from Table 3 for ViT-* ImageNet-1k
+                                 # default values but also mentioned in ViT paper section 4.1 (Training & Fine-tuning)
+                                 betas=(0.9, 0.999),
+                                 weight_decay=0.3)  # from the ViT paper section 4.1 (Training & Fine-tuning) and Table 3 for ViT-* ImageNet-1k
+
+    # Setup the loss function for multi-class classification
+    loss_fn = torch.nn.CrossEntropyLoss()
+
+    # Set the seeds
+    set_seeds()
+
+    # Train the model and save the training results to a dictionary
+    results = train(model=vit,
+                    train_dataloader=train_dataloader,
+                    test_dataloader=test_dataloader,
+                    optimizer=optimizer,
+                    loss_fn=loss_fn,
+                    epochs=10,
+                    device=device)
+    plot_loss_curves(results)
+    # requires torchvision >= 0.13, "DEFAULT" means best available
+    pretrained_vit_weights = torchvision.models.ViT_B_16_Weights.DEFAULT
+
+    # 2. Setup a ViT model instance with pretrained weights
+    pretrained_vit = torchvision.models.vit_b_16(
+        weights=pretrained_vit_weights).to(device)
+
+    # 3. Freeze the base parameters
+    for parameter in pretrained_vit.parameters():
+        parameter.requires_grad = False
+
+    # 4. Change the classifier head (set the seeds to ensure same initialization with linear head)
+    set_seeds()
+    pretrained_vit.heads = nn.Linear(
+        in_features=768, out_features=len(class_names)).to(device)
+    # pretrained_vit # uncomment for model output
+    # Download pizza, steak, sushi images from GitHub
+    image_path = download_data(source="https://github.com/mrdbourke/pytorch-deep-learning/raw/main/data/pizza_steak_sushi.zip",
+                               destination="pizza_steak_sushi")
+    # Setup train and test directory paths
+    train_dir = image_path / "train"
+    test_dir = image_path / "test"
+    pretrained_vit_transforms = pretrained_vit_weights.transforms()
+    # Setup dataloaders
+    train_dataloader_pretrained, test_dataloader_pretrained, class_names = create_dataloaders(train_dir=train_dir,
+                                                                                              test_dir=test_dir,
+                                                                                              transform=pretrained_vit_transforms,
+                                                                                              batch_size=32)  # Could increase if we had more samples, such as here: https://arxiv.org/abs/2205.01580 (there are other improvements there too...)
+    optimizer = torch.optim.Adam(params=pretrained_vit.parameters(),
+                                 lr=1e-3)
+    loss_fn = torch.nn.CrossEntropyLoss()
+
+    # Train the classifier head of the pretrained ViT feature extractor model
+    set_seeds()
+    pretrained_vit_results = train(model=pretrained_vit,
+                                   train_dataloader=train_dataloader_pretrained,
+                                   test_dataloader=test_dataloader_pretrained,
+                                   optimizer=optimizer,
+                                   loss_fn=loss_fn,
+                                   epochs=6,
+                                   device=device)
+    plot_loss_curves(pretrained_vit_results)
+    save_model(model=pretrained_vit,
+               target_dir="models",
+               model_name="08_pretrained_vit_feature_extractor_pizza_steak_sushi.pth")
+    custom_image_path = image_path / "04-pizza-dad.jpeg"
+
+    # Download the image if it doesn't already exist
+    if not custom_image_path.is_file():
+        with open(custom_image_path, "wb") as f:
+            # When downloading from GitHub, need to use the "raw" file link
+            request = requests.get(
+                "https://raw.githubusercontent.com/mrdbourke/pytorch-deep-learning/main/images/04-pizza-dad.jpeg")
+            print(f"Downloading {custom_image_path}...")
+            f.write(request.content)
+    else:
+        print(f"{custom_image_path} already exists, skipping download.")
+
+    # Predict on custom image
+    pred_and_plot_image(model=pretrained_vit,
+                        image_path=custom_image_path,
+                        class_names=class_names)
     pass

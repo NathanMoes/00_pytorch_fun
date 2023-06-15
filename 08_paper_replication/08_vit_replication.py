@@ -801,6 +801,64 @@ class MLPBlock(nn.Module):
         x = self.mlp(x)
         return x
 
+
+# Create an instance of MLPBlock
+mlp_block = MLPBlock(embedding_dim=768,  # from Table 1
+                     mlp_size=3072,  # from Table 1
+                     dropout=0.1)  # from Table 3
+
+# Pass output of MSABlock through MLPBlock
+patched_image_through_mlp_block = mlp_block(patched_image_through_msa_block)
+print(f"Input shape of MLP block: {patched_image_through_mlp_block.shape}")
+print(f"Output shape MLP block: {patched_image_through_mlp_block.shape}")
+
+
+# 1. Create a class that inherits from nn.Module
+class TransformerEncoderBlock(nn.Module):
+    """Creates a Transformer Encoder block."""
+    # 2. Initialize the class with hyperparameters from Table 1 and Table 3
+
+    def __init__(self,
+                 embedding_dim: int = 768,  # Hidden size D from Table 1 for ViT-Base
+                 num_heads: int = 12,  # Heads from Table 1 for ViT-Base
+                 mlp_size: int = 3072,  # MLP size from Table 1 for ViT-Base
+                 # Amount of dropout for dense layers from Table 3 for ViT-Base
+                 mlp_dropout: float = 0.1,
+                 attn_dropout: float = 0):  # Amount of dropout for attention layers
+        super().__init__()
+
+        # 3. Create MSA block (equation 2)
+        self.msa_block = MultiheadSelfAttentionBlock(embedding_dim=embedding_dim,
+                                                     num_heads=num_heads,
+                                                     attn_dropout=attn_dropout)
+
+        # 4. Create MLP block (equation 3)
+        self.mlp_block = MLPBlock(embedding_dim=embedding_dim,
+                                  mlp_size=mlp_size,
+                                  dropout=mlp_dropout)
+
+    # 5. Create a forward() method
+    def forward(self, x):
+
+        # 6. Create residual connection for MSA block (add the input to the output)
+        x = self.msa_block(x) + x
+
+        # 7. Create residual connection for MLP block (add the input to the output)
+        x = self.mlp_block(x) + x
+
+        return x
+
+
+# Create an instance of TransformerEncoderBlock
+transformer_encoder_block = TransformerEncoderBlock()
+
+# # Print an input and output summary of our Transformer Encoder (uncomment for full output)
+# summary(model=transformer_encoder_block,
+#         input_size=(1, 197, 768), # (batch_size, num_patches, embedding_dimension)
+#         col_names=["input_size", "output_size", "num_params", "trainable"],
+#         col_width=20,
+#         row_settings=["var_names"])
+
 # equation 1L split data into patches
 # equation 2L apply convocational layer to each patch
 # equation 3L apply max pooling to each patch

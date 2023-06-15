@@ -52,6 +52,33 @@ def set_seeds(seed: int = 42):
 set_seeds()
 
 
+def plot_loss_curves(results: Dict[str, List[float]]):
+    """
+    Plots the loss and accuracy curves for the training and test set
+    """
+    train_loss = results["train_loss"]
+    test_loss = results["test_loss"]
+    accuracy = results["train_acc"]
+    test_accuracy = results["test_acc"]
+    epochs = range(len(results["train_loss"]))
+    plt.figure(figsize=(15, 7))
+    plt.subplot(1, 2, 1)
+    plt.plot(epochs, train_loss, label="Train loss")
+    plt.plot(epochs, test_loss, label="Test loss")
+    plt.title("Loss vs Epochs")
+    plt.xlabel("Epochs")
+    plt.ylabel("Loss")
+    plt.legend()
+    plt.subplot(1, 2, 2)
+    plt.plot(epochs, accuracy, label="Train accuracy")
+    plt.plot(epochs, test_accuracy, label="Test accuracy")
+    plt.title("Accuracy vs Epochs")
+    plt.xlabel("Epochs")
+    plt.ylabel("Accuracy")
+    plt.legend()
+    plt.show()
+
+
 def download_data(source: str = "https://github.com/mrdbourke/pytorch-deep-learning/raw/main/data/pizza_steak_sushi.zip",
                   destination: str = "pizza_steak_sushi",
                   remove_source: bool = True) -> Path:
@@ -967,4 +994,48 @@ torch_transformer_encoder_layer = nn.TransformerEncoderLayer(d_model=768,  # Hid
 
 if __name__ == "__main__":
     # visualize()
+    vit = ViT(num_classes=len(class_names)).to(device=device)
+    from torchinfo import summary
+
+    # Print a summary of our custom ViT model using torchinfo (uncomment for actual output)
+    summary(model=vit,
+            # (batch_size, color_channels, height, width)
+            input_size=(32, 3, 224, 224),
+            # col_names=["input_size"], # uncomment for smaller output
+            col_names=["input_size", "output_size", "num_params", "trainable"],
+            col_width=20,
+            row_settings=["var_names"]
+            )
+    set_seeds()
+
+    # # Create a random tensor with same shape as a single image
+    # # (batch_size, color_channels, height, width)
+    # random_image_tensor = torch.randn(1, 3, 224, 224)
+
+    # # Create an instance of ViT with the number of classes we're working with (pizza, steak, sushi)
+
+    # # Pass the random image tensor to our ViT instance
+    # vit(random_image_tensor)
+    # Setup the optimizer to optimize our ViT model parameters using hyperparameters from the ViT paper
+    optimizer = torch.optim.Adam(params=vit.parameters(),
+                                 lr=3e-3,  # Base LR from Table 3 for ViT-* ImageNet-1k
+                                 # default values but also mentioned in ViT paper section 4.1 (Training & Fine-tuning)
+                                 betas=(0.9, 0.999),
+                                 weight_decay=0.3)  # from the ViT paper section 4.1 (Training & Fine-tuning) and Table 3 for ViT-* ImageNet-1k
+
+    # Setup the loss function for multi-class classification
+    loss_fn = torch.nn.CrossEntropyLoss()
+
+    # Set the seeds
+    set_seeds()
+
+    # Train the model and save the training results to a dictionary
+    results = train(model=vit,
+                    train_dataloader=train_dataloader,
+                    test_dataloader=test_dataloader,
+                    optimizer=optimizer,
+                    loss_fn=loss_fn,
+                    epochs=10,
+                    device=device)
+    plot_loss_curves(results)
     pass

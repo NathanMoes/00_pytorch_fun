@@ -725,8 +725,84 @@ patch_and_position_embedding = patch_embedding_class_token + position_embedding
 print(
     f"Patch and position embedding shape: {patch_and_position_embedding.shape}")
 
+# 1. Create a class that inherits from nn.Module
+
+
+class MultiheadSelfAttentionBlock(nn.Module):
+    """Creates a multi-head self-attention block ("MSA block" for short).
+    """
+    # 2. Initialize the class with hyperparameters from Table 1
+
+    def __init__(self,
+                 embedding_dim: int = 768,  # Hidden size D from Table 1 for ViT-Base
+                 num_heads: int = 12,  # Heads from Table 1 for ViT-Base
+                 attn_dropout: float = 0):  # doesn't look like the paper uses any dropout in MSABlocks
+        super().__init__()
+
+        # 3. Create the Norm layer (LN)
+        self.layer_norm = nn.LayerNorm(normalized_shape=embedding_dim)
+
+        # 4. Create the Multi-Head Attention (MSA) layer
+        self.multihead_attn = nn.MultiheadAttention(embed_dim=embedding_dim,
+                                                    num_heads=num_heads,
+                                                    dropout=attn_dropout,
+                                                    batch_first=True)  # does our batch dimension come first?
+
+    # 5. Create a forward() method to pass the data throguh the layers
+    def forward(self, x):
+        x = self.layer_norm(x)
+        attn_output, _ = self.multihead_attn(query=x,  # query embeddings
+                                             key=x,  # key embeddings
+                                             value=x,  # value embeddings
+                                             need_weights=False)  # do we need the weights or just the layer outputs?
+        return attn_output
+
+
+# Create an instance of MSABlock
+multihead_self_attention_block = MultiheadSelfAttentionBlock(embedding_dim=768,  # from Table 1
+                                                             num_heads=12)  # from Table 1
+
+# Pass patch and position image embedding through MSABlock
+patched_image_through_msa_block = multihead_self_attention_block(
+    patch_and_position_embedding)
+print(f"Input shape of MSA block: {patch_and_position_embedding.shape}")
+print(f"Output shape MSA block: {patched_image_through_msa_block.shape}")
+
+
+# 1. Create a class that inherits from nn.Module
+class MLPBlock(nn.Module):
+    """Creates a layer normalized multilayer perceptron block ("MLP block" for short)."""
+    # 2. Initialize the class with hyperparameters from Table 1 and Table 3
+
+    def __init__(self,
+                 embedding_dim: int = 768,  # Hidden Size D from Table 1 for ViT-Base
+                 mlp_size: int = 3072,  # MLP size from Table 1 for ViT-Base
+                 dropout: float = 0.1):  # Dropout from Table 3 for ViT-Base
+        super().__init__()
+
+        # 3. Create the Norm layer (LN)
+        self.layer_norm = nn.LayerNorm(normalized_shape=embedding_dim)
+
+        # 4. Create the Multilayer perceptron (MLP) layer(s)
+        self.mlp = nn.Sequential(
+            nn.Linear(in_features=embedding_dim,
+                      out_features=mlp_size),
+            nn.GELU(),  # "The MLP contains two layers with a GELU non-linearity (section 3.1)."
+            nn.Dropout(p=dropout),
+            nn.Linear(in_features=mlp_size,  # needs to take same in_features as out_features of layer above
+                      out_features=embedding_dim),  # take back to embedding_dim
+            # "Dropout, when used, is applied after every dense layer.."
+            nn.Dropout(p=dropout)
+        )
+
+    # 5. Create a forward() method to pass the data throguh the layers
+    def forward(self, x):
+        x = self.layer_norm(x)
+        x = self.mlp(x)
+        return x
+
 # equation 1L split data into patches
-# equation 2L apply convolutional layer to each patch
+# equation 2L apply convocational layer to each patch
 # equation 3L apply max pooling to each patch
 # equation 4L concatenate all patches together
 # equation 5L apply fully connected layer to concatenated patches
